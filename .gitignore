@@ -1,0 +1,25 @@
+# Build output
+target/
+build/
+dist/
+node_modules/
+*.log
+
+# Generated API code (ADR-005)
+frontend/src/api/generated/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Test output
+e2e/test-results/
+e2e/playwright-report/
