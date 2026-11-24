@@ -1,0 +1,561 @@
+# Menu module (M1.1): kitchen stations, categories, menu items, price lists, modifiers, POS menu view.
+# Items, categories and modifier groups are never deleted, only deactivated (m1.1-scope.md decision 1).
+# Money fields are `Money` strings with exactly 2 decimals ("450.00"); prices must not be negative.
+components:
+  schemas:
+    # ------------------------------------------------------------------ kitchen stations
+    KitchenStation:
+      type: object
+      description: One of the three kitchen stations (P1-MENU-07). Seeded; names and target time are editable.
+      required: [id, number, name, targetPrepMinutes, active, activeItemCount, version, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: Station number 1-3 (used by the import template).
+        name:
+          type: string
+          examples: ['Kitchen 1 - Rice & Curry']
+        targetPrepMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: Target preparation time in minutes; the kitchen screen turns a ticket red past it (P1-SET-05).
+          examples: [15]
+        active:
+          type: boolean
+        activeItemCount:
+          type: integer
+          minimum: 0
+          description: Number of active menu items mapped to this station.
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateKitchenStationRequest:
+      type: object
+      required: [name, targetPrepMinutes, active, version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Unique among stations (case-insensitive).
+        targetPrepMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+        active:
+          type: boolean
+          description: A station with active menu items cannot be deactivated (409 STATION_IN_USE).
+        version:
+          type: integer
+          description: Version from the last GET.
+    KitchenStationOption:
+      type: object
+      description: A station to pick in a form (terminal setup, item editor).
+      required: [id, number, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+          minimum: 1
+          maximum: 3
+        name:
+          type: string
+
+    # ------------------------------------------------------------------ categories
+    Category:
+      type: object
+      required: [id, name, sortOrder, active, itemCount, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Rice & Curry']
+        sortOrder:
+          type: integer
+          minimum: 0
+          description: Display order, lowest first.
+        active:
+          type: boolean
+          description: An inactive category hides its items from the POS; the items' own flags don't change.
+        itemCount:
+          type: integer
+          minimum: 0
+          description: Number of items (active or not) in this category.
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Unique (case-insensitive).
+        sortOrder:
+          type: integer
+          minimum: 0
+          description: Defaults to the end of the list.
+        active:
+          type: boolean
+          description: Defaults to true.
+    UpdateCategoryRequest:
+      type: object
+      required: [name, sortOrder, active, version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        sortOrder:
+          type: integer
+          minimum: 0
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: Version from the last GET.
+
+    # ------------------------------------------------------------------ menu items
+    ItemCode:
+      type: string
+      description: Unique item code used for POS search. 1-20 characters, upper-case letters, digits and dash.
+      pattern: '^[A-Z0-9-]{1,20}$'
+      examples: ['RC-CHK']
+    ModifierGroupRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Spice level']
+    MenuItemSummary:
+      type: object
+      description: One row of the item list.
+      required: [id, code, name, categoryId, categoryName, stationId, stationName, localPrice, active, available, modifierGroupCount, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          $ref: '#/components/schemas/ItemCode'
+        name:
+          type: string
+          examples: ['Chicken fried rice']
+        categoryId:
+          type: string
+          format: uuid
+        categoryName:
+          type: string
+        stationId:
+          type: string
+          format: uuid
+        stationName:
+          type: string
+        localPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        foreignPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        active:
+          type: boolean
+        available:
+          type: boolean
+          description: False = sold out today (P1-MENU-06).
+        modifierGroupCount:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+    MenuItem:
+      type: object
+      required: [id, code, name, categoryId, categoryName, stationId, stationName, localPrice, active, available, modifierGroups, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          $ref: '#/components/schemas/ItemCode'
+        name:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        categoryName:
+          type: string
+        stationId:
+          type: string
+          format: uuid
+          description: The one kitchen station that prepares this item (P1-MENU-02).
+        stationName:
+          type: string
+        localPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        foreignPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        active:
+          type: boolean
+        available:
+          type: boolean
+        modifierGroups:
+          type: array
+          description: Attached groups in display order.
+          items:
+            $ref: '#/components/schemas/ModifierGroupRef'
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    MenuItemPage:
+      allOf:
+        - $ref: './common.yaml#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/MenuItemSummary'
+    CreateMenuItemRequest:
+      type: object
+      required: [code, name, categoryId, stationId, localPrice]
+      properties:
+        code:
+          $ref: '#/components/schemas/ItemCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        categoryId:
+          type: string
+          format: uuid
+        stationId:
+          type: string
+          format: uuid
+          description: 'Required: an item cannot be saved without exactly one station (422 otherwise).'
+        localPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        foreignPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        active:
+          type: boolean
+          description: Defaults to true.
+        modifierGroupIds:
+          type: array
+          uniqueItems: true
+          description: Modifier groups to attach, in display order. Defaults to none.
+          items:
+            type: string
+            format: uuid
+    UpdateMenuItemRequest:
+      type: object
+      required: [code, name, categoryId, stationId, localPrice, active, version]
+      properties:
+        code:
+          $ref: '#/components/schemas/ItemCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        categoryId:
+          type: string
+          format: uuid
+        stationId:
+          type: string
+          format: uuid
+        localPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        foreignPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        active:
+          type: boolean
+        modifierGroupIds:
+          type: array
+          uniqueItems: true
+          description: Full replacement of the attached groups, in display order. Omitted = none.
+          items:
+            type: string
+            format: uuid
+        version:
+          type: integer
+          description: Version from the last GET.
+    SetItemAvailabilityRequest:
+      type: object
+      required: [available]
+      properties:
+        available:
+          type: boolean
+          description: false = sold out for today.
+    ItemAvailability:
+      type: object
+      required: [id, code, name, available]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          $ref: '#/components/schemas/ItemCode'
+        name:
+          type: string
+        available:
+          type: boolean
+    AvailabilityItem:
+      type: object
+      description: One row of the sold-out board (active items only).
+      required: [id, code, name, categoryName, available]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          $ref: '#/components/schemas/ItemCode'
+        name:
+          type: string
+        categoryName:
+          type: string
+        available:
+          type: boolean
+
+    # ------------------------------------------------------------------ modifiers
+    ModifierOption:
+      type: object
+      required: [id, name, priceDelta]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Extra cheese']
+        priceDelta:
+          $ref: './common.yaml#/components/schemas/Money'
+    ModifierOptionInput:
+      type: object
+      required: [name, priceDelta]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Id of an existing option to keep (and rename / reprice). Omit for a new option.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        priceDelta:
+          $ref: './common.yaml#/components/schemas/Money'
+    ModifierGroup:
+      type: object
+      description: >-
+        A group of options such as "Spice level" (P1-MENU-03). Options are shown in the order given.
+      required: [id, name, required, minSelect, maxSelect, active, options, itemCount, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Spice level']
+        required:
+          type: boolean
+          description: A required group not chosen means the item cannot be added to an order.
+        minSelect:
+          type: integer
+          minimum: 0
+        maxSelect:
+          type: integer
+          minimum: 1
+        active:
+          type: boolean
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModifierOption'
+        itemCount:
+          type: integer
+          minimum: 0
+          description: Number of items this group is attached to.
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateModifierGroupRequest:
+      type: object
+      required: [name, required, minSelect, maxSelect, options]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Unique (case-insensitive).
+        required:
+          type: boolean
+        minSelect:
+          type: integer
+          minimum: 0
+          description: Must be at least 1 when `required`, and 0 when not.
+        maxSelect:
+          type: integer
+          minimum: 1
+          description: Not less than minSelect and not more than the number of options.
+        active:
+          type: boolean
+          description: Defaults to true.
+        options:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ModifierOptionInput'
+    UpdateModifierGroupRequest:
+      type: object
+      required: [name, required, minSelect, maxSelect, active, options, version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        required:
+          type: boolean
+        minSelect:
+          type: integer
+          minimum: 0
+        maxSelect:
+          type: integer
+          minimum: 1
+        active:
+          type: boolean
+        options:
+          type: array
+          minItems: 1
+          description: Full replacement. Existing options not listed (by id) are removed.
+          items:
+            $ref: '#/components/schemas/ModifierOptionInput'
+        version:
+          type: integer
+          description: Version from the last GET.
+
+    # ------------------------------------------------------------------ POS view (read-only lookup)
+    PosModifierOption:
+      type: object
+      required: [id, name, priceDelta]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        priceDelta:
+          $ref: './common.yaml#/components/schemas/Money'
+    PosModifierGroup:
+      type: object
+      required: [id, name, required, minSelect, maxSelect, options]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        required:
+          type: boolean
+        minSelect:
+          type: integer
+        maxSelect:
+          type: integer
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/PosModifierOption'
+    PosMenuItem:
+      type: object
+      required: [id, code, name, stationId, localPrice, available, modifierGroupIds]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          $ref: '#/components/schemas/ItemCode'
+        name:
+          type: string
+        stationId:
+          type: string
+          format: uuid
+        localPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        foreignPrice:
+          $ref: './common.yaml#/components/schemas/Money'
+        available:
+          type: boolean
+          description: False = greyed out, cannot be added (P1-MENU-06).
+        modifierGroupIds:
+          type: array
+          description: Ids into `PosMenu.modifierGroups`, in display order.
+          items:
+            type: string
+            format: uuid
+    PosCategory:
+      type: object
+      required: [id, name, sortOrder, items]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        items:
+          type: array
+          description: Active items of this category, by code.
+          items:
+            $ref: '#/components/schemas/PosMenuItem'
+    PosMenu:
+      type: object
+      description: >-
+        The whole sellable menu in one call, for the order screen and client-side search (P1-ORD-03).
+        Only active categories, items and modifier groups are included; sold-out items are included
+        with `available: false`.
+      required: [generatedAt, categories, modifierGroups, kitchenStations]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/PosCategory'
+        modifierGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PosModifierGroup'
+        kitchenStations:
+          type: array
+          description: Active stations, for the custom-item dialog (P1-ORD-05).
+          items:
+            $ref: '#/components/schemas/KitchenStationOption'

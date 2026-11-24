@@ -15,6 +15,23 @@ Show, for each milestone, that every requirement ID holds — or exactly where i
 | End-to-end | Playwright (TS) | qa-engineer | Real browser flows; multi-context tests for POS + 3 KDS |
 | Manual / on-site | Checklist | qa-engineer + client staff | Receipt printer, cash drawer, tablets, real network, UAT |
 
+## 2a. Test tiers (speed strategy, adopted 2026-11-22)
+Full regression after every milestone was too slow (the M1.0 QA cycle took about 80 minutes, most of it writing tests and chasing load-related flakes). QA now works in three tiers:
+
+| Tier | When | What runs | Target time |
+|---|---|---|---|
+| **1 Smoke** | After every backend or frontend change | Login, one happy path per module, permission-matrix sample (1 role per operation group), API only | under 3 min |
+| **2 Milestone** | Once per milestone, when BE and FE report green | New milestone specs in full + **only the operations added or changed** in the permission matrix (diff the bundled contract against the last full run) + Tier 1 | under 15 min |
+| **3 Full regression** | Only at the phase exit gate and before UAT or release; run in the background while the next milestone is being built | Everything, all roles × all operations, all UI specs | whatever it takes, never blocks the next milestone |
+
+Rules that keep it fast:
+1. **Tests are written from the contract before the code lands.** When backend-dev publishes a milestone contract, QA starts the spec skeletons and matrix at once, in parallel with the BE and FE builds, so only the run is left when they finish.
+2. **Shift left.** Backend and frontend run QA's Tier 1 suite themselves before reporting a milestone done. A failure there is fixed before QA is involved.
+3. **API before UI.** API acceptance tests run first; browser tests run only for flows the API tests can't cover (drag floor plan, multi-context KDS, real-time).
+4. **No flake chasing inside a milestone.** A UI test that fails once and passes alone is logged as flaky (backlog); only a repeated failure is a bug.
+5. **Two QA runs in parallel when needed:** one agent for API and matrix, one for UI, on separate ports and databases.
+6. Gate wording: a milestone is signed off on Tier 2; the phase on Tier 3.
+
 ## 3. Traceability
 - Each phase has `docs/qa/phase-N/test-plan.md`: requirement ID → test id(s) → level → automated/manual → status.
 - Test names start with the requirement ID: `P1-BILL-02 concurrent bills get consecutive numbers`.

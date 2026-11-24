@@ -1,0 +1,195 @@
+# Users (module: auth).
+components:
+  schemas:
+    Username:
+      type: string
+      description: Login name. Lower-case letters, digits, dot, dash, underscore; 3 to 32 characters. Cannot be changed later.
+      pattern: '^[a-z0-9._-]{3,32}$'
+      examples: ['cashier1']
+    NewPassword:
+      type: string
+      description: New password, 8 to 72 characters. Must not equal the username.
+      format: password
+      minLength: 8
+      maxLength: 72
+      writeOnly: true
+    NewPin:
+      type: string
+      description: Approval PIN, 4 to 6 digits.
+      pattern: '^\d{4,6}$'
+      writeOnly: true
+      examples: ['4821']
+    PhoneNumber:
+      type: string
+      pattern: '^\+?[0-9][0-9 -]{6,18}$'
+      examples: ['+94 77 123 4567']
+    UserOption:
+      type: object
+      description: A user to pick in a filter (e.g. the audit log user filter). Includes deactivated users.
+      required: [id, username, fullName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          examples: ['cashier1']
+        fullName:
+          type: string
+          examples: ['Nimal Perera']
+    UserSummary:
+      type: object
+      required: [id, username, fullName, active, locked, pinSet, pinLocked, roles]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          examples: ['cashier1']
+        fullName:
+          type: string
+          examples: ['Nimal Perera']
+        active:
+          type: boolean
+        locked:
+          type: boolean
+          description: True while the account is locked after 5 wrong passwords.
+        pinSet:
+          type: boolean
+          description: True if the user has an approval PIN.
+        pinLocked:
+          type: boolean
+          description: True while the PIN is locked after 3 wrong PINs.
+        roles:
+          type: array
+          items:
+            $ref: './roles.yaml#/components/schemas/RoleRef'
+        lastLoginAt:
+          type: string
+          format: date-time
+    User:
+      type: object
+      required: [id, username, fullName, active, locked, pinSet, pinLocked, roles, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          examples: ['cashier1']
+        fullName:
+          type: string
+          examples: ['Nimal Perera']
+        phone:
+          type: string
+          examples: ['+94 77 123 4567']
+        active:
+          type: boolean
+        locked:
+          type: boolean
+          description: True while the account is locked after 5 wrong passwords (15 min, or until unlocked).
+        lockedUntil:
+          type: string
+          format: date-time
+          description: Present while locked.
+        pinSet:
+          type: boolean
+          description: True if the user has an approval PIN.
+        pinLocked:
+          type: boolean
+          description: True while the PIN is locked after 3 wrong PINs (5 min, or until unlocked).
+        pinLockedUntil:
+          type: string
+          format: date-time
+          description: Present while the PIN is locked.
+        roles:
+          type: array
+          items:
+            $ref: './roles.yaml#/components/schemas/RoleRef'
+        lastLoginAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          description: Optimistic-lock version; send it back on update and role assignment.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UserPage:
+      allOf:
+        - $ref: './common.yaml#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserSummary'
+    CreateUserRequest:
+      type: object
+      required: [username, fullName, password, roleIds]
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          examples: ['Nimal Perera']
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        password:
+          $ref: '#/components/schemas/NewPassword'
+        pin:
+          $ref: '#/components/schemas/NewPin'
+        roleIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    UpdateUserRequest:
+      type: object
+      required: [fullName, version]
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        version:
+          type: integer
+          description: Version from the last GET.
+    AssignUserRolesRequest:
+      type: object
+      required: [roleIds, version]
+      properties:
+        roleIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Full replacement of the user's roles.
+          items:
+            type: string
+            format: uuid
+        version:
+          type: integer
+          description: User version from the last GET.
+    ResetUserPasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          $ref: '#/components/schemas/NewPassword'
+    ResetUserPinRequest:
+      type: object
+      required: [newPin]
+      properties:
+        newPin:
+          $ref: '#/components/schemas/NewPin'

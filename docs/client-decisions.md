@@ -13,6 +13,7 @@ Answers from the client to the open questions in `PLAN.md` §6. Every entry is d
 | 6 | SMS provider | Open | — | Phase 3 / 4 | — |
 | 7 | Booking cancellation policy for advances | Open | — | Phase 4 | — |
 | 8 | Dates for menu, recipes, tables, staff, supplier spreadsheets | Open | — | M1.1 data load, Phase 2 | — |
+| 9 | Must every user log in from a registered terminal? | **No.** Owner, Manager, Rider, Inventory and HR log in from any device with username and password. Counter (POS) and kitchen devices stay registered terminals; cashier, reception and kitchen staff log in only there. Orders, payments, shifts and kitchen screens need a registered terminal. | 2026-11-24 | M1.0 auth, M1.2+ | [ADR-008](decisions/ADR-008-personal-login-without-terminal.md) |
 
 ## Working assumptions while answers are pending
 
@@ -28,3 +29,4 @@ Answers from the client to the open questions in `PLAN.md` §6. Every entry is d
 | §5 / §6 "CANCEL KOT", "REPRINT" | Shown on the kitchen screen as a cancelled line / re-sent ticket, not printed. Receipt reprints are still marked REPRINT. |
 | §3 "Service charge and taxes applied automatically per order type" | Service charge only; tax rate 0 and disabled until the client asks. |
 | §15 "Sinhala on receipts and KOTs if required" | English only. |
+| P1-AUTH-04 "Unregistered browser can only reach login / terminal setup" (our reading of Annex A) | Users with `LOGIN_ANY_DEVICE` log in from any browser; only counter and kitchen work needs a registered terminal (#9). |

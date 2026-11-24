@@ -1,0 +1,407 @@
+# Shared components used by every module.
+# Rules: see ../conventions.md. Optional fields (not in `required`) are omitted from
+# responses when they have no value; the API never sends explicit nulls (Jackson NON_NULL).
+# Updates are full replacements (PUT): an optional field left out of a request clears it.
+components:
+  schemas:
+    Money:
+      type: string
+      description: Amount in LKR as a decimal string with exactly 2 decimals. BigDecimal in Java.
+      pattern: '^-?\d{1,10}\.\d{2}$'
+      examples: ['1100.00']
+    Rate:
+      type: string
+      description: Percentage as a decimal string with 2 decimals, 0.00 to 100.00 ("10.00" = 10%). BigDecimal in Java.
+      pattern: '^(100\.00|\d{1,2}\.\d{2})$'
+      examples: ['10.00']
+    Problem:
+      type: object
+      description: RFC 7807 problem details. `detail` and `fieldErrors[].message` are written for the cashier and shown as-is.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Stable URI for the error kind.
+          examples: ['https://rms/errors/version-conflict']
+        title:
+          type: string
+          description: Short summary of the error kind.
+          examples: ['Someone else changed this record']
+        status:
+          type: integer
+          description: HTTP status code.
+          examples: [409]
+        detail:
+          type: string
+          description: Plain-English explanation for the user.
+          examples: ['This user was changed by someone else. Reload and try again.']
+        instance:
+          type: string
+          format: uri-reference
+          description: The request path that failed.
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]*$'
+          description: >-
+            Machine-readable error code (UPPER_SNAKE). Codes used in M1.0:
+            VALIDATION_FAILED, MALFORMED_REQUEST, UNAUTHENTICATED, TOKEN_EXPIRED, INVALID_CREDENTIALS,
+            REFRESH_TOKEN_INVALID, ACCOUNT_LOCKED, ACCOUNT_INACTIVE, PIN_LOCKED, FORBIDDEN,
+            TERMINAL_NOT_REGISTERED, TERMINAL_INACTIVE, TERMINAL_MISMATCH, APPROVAL_REQUIRED,
+            APPROVAL_INVALID, NOT_FOUND, VERSION_CONFLICT, USERNAME_TAKEN, ROLE_NAME_TAKEN,
+            TERMINAL_NAME_TAKEN, SYSTEM_ROLE_READ_ONLY, OWNER_ROLE_READ_ONLY, ROLE_IN_USE,
+            LAST_OWNER, CANNOT_DEACTIVATE_SELF, TAX_NOT_SUPPORTED, EXPORT_TOO_LARGE,
+            IDEMPOTENCY_MISMATCH, TOO_MANY_ATTEMPTS, CATEGORY_NAME_TAKEN, ITEM_CODE_TAKEN,
+            MODIFIER_GROUP_NAME_TAKEN, TABLE_NUMBER_TAKEN, DELIVERY_AREA_NAME_TAKEN, REASON_TEXT_TAKEN,
+            STATION_NAME_TAKEN, STATION_IN_USE, IMPORT_FILE_INVALID, TERMINAL_REQUIRED,
+            TERMINAL_REQUIRED_FOR_USER. New codes may be added; clients fall back to `detail`.
+          examples: ['VERSION_CONFLICT']
+        fieldErrors:
+          type: array
+          description: Present for VALIDATION_FAILED (422). One entry per invalid field.
+          items:
+            $ref: '#/components/schemas/FieldError'
+        traceId:
+          type: string
+          description: Correlation id for support; matches the server log.
+          examples: ['4bf92f3577b34da6a3ce929d0e0e4736']
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: JSON path of the field in the request body, or the query parameter name (e.g. `rules[1].rate`).
+          examples: ['username']
+        message:
+          type: string
+          description: Plain-English message for the user.
+          examples: ['Username is already taken']
+    PageMeta:
+      type: object
+      description: >-
+        Pagination fields shared by every paged list. Paged list schemas are
+        `allOf: [PageMeta, {items: [...]}]` and serialise as `{items, page, size, totalItems}`.
+      required: [page, size, totalItems]
+      properties:
+        page:
+          type: integer
+          minimum: 0
+          description: Zero-based page index returned.
+          examples: [0]
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+          description: Page size used.
+          examples: [50]
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total matching items across all pages.
+          examples: [137]
+    Approval:
+      type: object
+      description: Manager / owner PIN approval sent inline with an action that needs it (see conventions.md, Approvals).
+      required: [approverUsername, pin]
+      properties:
+        approverUsername:
+          type: string
+          minLength: 1
+          maxLength: 32
+          examples: ['manager1']
+        pin:
+          type: string
+          pattern: '^\d{4,6}$'
+          writeOnly: true
+          examples: ['1234']
+    UserRef:
+      type: object
+      description: Minimal reference to a user, embedded in other resources.
+      required: [id, username, fullName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          examples: ['cashier1']
+        fullName:
+          type: string
+          examples: ['Nimal Perera']
+    TerminalRef:
+      type: object
+      description: Minimal reference to a terminal, embedded in other resources.
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Cashier POS 1']
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Client-generated UUID, required on operations marked `x-idempotent: true`.
+        Same key + same body within 24 h returns the original response; same key + different body
+        returns 422 IDEMPOTENCY_MISMATCH.
+      schema:
+        type: string
+        format: uuid
+    TerminalId:
+      name: X-Terminal-Id
+      in: header
+      required: false
+      description: >-
+        Id of the registered terminal this request comes from. Sent on every call of a terminal
+        session; it must match the terminal in the access token (403 TERMINAL_MISMATCH otherwise).
+        A personal session (ADR-008) must not send it (403 TERMINAL_MISMATCH). Declared explicitly
+        only where the server needs it before a token exists (login, refresh); elsewhere it is
+        checked by a request filter.
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Zero-based page index.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Page size (max 200).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Sort:
+      name: sort
+      in: query
+      required: false
+      description: '`field,asc` or `field,desc`. Allowed fields are listed on each operation.'
+      schema:
+        type: string
+        pattern: '^[a-zA-Z]+,(asc|desc)$'
+        examples: ['createdAt,desc']
+    From:
+      name: from
+      in: query
+      required: false
+      description: Start date, inclusive (YYYY-MM-DD). Meaning (business date or calendar date in Asia/Colombo) is stated per operation.
+      schema:
+        type: string
+        format: date
+        examples: ['2026-11-01']
+    To:
+      name: to
+      in: query
+      required: false
+      description: End date, inclusive (YYYY-MM-DD). Must not be before `from`.
+      schema:
+        type: string
+        format: date
+        examples: ['2026-11-30']
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TerminalIdPath:
+      name: terminalId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    KitchenStationId:
+      name: stationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MenuItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ModifierGroupId:
+      name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DiningTableId:
+      name: tableId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DeliveryAreaId:
+      name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ReasonId:
+      name: reasonId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  headers:
+    ContentDisposition:
+      description: 'Download file name, e.g. `attachment; filename="audit-log-2026-11-01_2026-11-30.xlsx"`.'
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Malformed request (unreadable JSON, wrong type, bad query parameter format).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/malformed-request
+            title: Malformed request
+            status: 400
+            code: MALFORMED_REQUEST
+            detail: The request could not be read.
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+    Unauthorized:
+      description: Not logged in, token expired or invalid credentials.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/unauthenticated
+            title: Please log in
+            status: 401
+            code: UNAUTHENTICATED
+            detail: Your session has ended. Please log in again.
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+    Forbidden:
+      description: >-
+        Missing permission, terminal not allowed or not matching (TERMINAL_MISMATCH), terminal session
+        required (TERMINAL_REQUIRED, TERMINAL_REQUIRED_FOR_USER), or approval required / invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/forbidden
+            title: Not allowed
+            status: 403
+            code: FORBIDDEN
+            detail: You do not have permission to do this.
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+    NotFound:
+      description: Resource not found (or not visible to this user).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/not-found
+            title: Not found
+            status: 404
+            code: NOT_FOUND
+            detail: This record does not exist.
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+    Conflict:
+      description: Version conflict, duplicate, illegal state transition or business-rule conflict.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/version-conflict
+            title: Someone else changed this record
+            status: 409
+            code: VERSION_CONFLICT
+            detail: This record was changed by someone else. Reload and try again.
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+    ValidationFailed:
+      description: Validation failed; see `fieldErrors`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/validation-failed
+            title: Please check the highlighted fields
+            status: 422
+            code: VALIDATION_FAILED
+            detail: Some fields are missing or invalid.
+            fieldErrors:
+              - field: username
+                message: Username is required
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+    Locked:
+      description: Account or PIN temporarily locked after too many wrong attempts.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/account-locked
+            title: Account locked
+            status: 423
+            code: ACCOUNT_LOCKED
+            detail: Too many wrong passwords. Try again in 15 minutes or ask the owner to unlock your account.
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+    TooManyRequests:
+      description: Too many failed attempts from this device; wait and try again.
+      headers:
+        Retry-After:
+          description: Seconds until another attempt is allowed.
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://rms/errors/too-many-attempts
+            title: Too many attempts
+            status: 429
+            code: TOO_MANY_ATTEMPTS
+            detail: Too many wrong usernames or passwords from this device. Please wait before trying again.
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736

@@ -1,0 +1,336 @@
+# Paths: users (owner admin of user accounts).
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-21 v0.1.0 initial M1.0 contract.
+# - 2026-11-21 v0.1.1 added GET /users/options; added required pinSet / pinLocked to UserSummary (response only). Not breaking.
+/users/options:
+  get:
+    tags: [users]
+    operationId: listUserOptions
+    summary: List users to pick from in the audit log filter
+    description: >-
+      Narrow lookup for the audit log user filter (AUDIT_VIEW), so it doesn't need USER_MANAGE.
+      All users including deactivated ones (they still appear in the log), ordered by username.
+    x-permission: AUDIT_VIEW
+    x-requirements: [P1-AUD-03]
+    responses:
+      '200':
+        description: User options.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/users.yaml#/components/schemas/UserOption'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/users:
+  get:
+    tags: [users]
+    operationId: listUsers
+    summary: List users
+    description: 'Paged. Sort fields: `username`, `fullName`, `lastLoginAt`, `createdAt` (default `username,asc`).'
+    x-permission: USER_MANAGE
+    x-requirements: [P1-RBAC-01, P1-RBAC-02]
+    parameters:
+      - $ref: '../components/common.yaml#/components/parameters/Page'
+      - $ref: '../components/common.yaml#/components/parameters/Size'
+      - $ref: '../components/common.yaml#/components/parameters/Sort'
+      - name: active
+        in: query
+        required: false
+        description: Only active (true) or only deactivated (false) users. Both when omitted.
+        schema:
+          type: boolean
+      - name: roleId
+        in: query
+        required: false
+        description: Only users holding this role.
+        schema:
+          type: string
+          format: uuid
+      - name: search
+        in: query
+        required: false
+        description: Case-insensitive match on username or full name.
+        schema:
+          type: string
+          maxLength: 100
+    responses:
+      '200':
+        description: A page of users.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/UserPage'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [users]
+    operationId: createUser
+    summary: Create a user
+    description: >-
+      Username must be unique (409 USERNAME_TAKEN). Unknown role ids return 422.
+      Password and PIN are stored hashed. Writes CREATE (entityType USER) to the audit log, without secrets.
+    x-permission: USER_MANAGE
+    x-requirements: [P1-AUTH-01, P1-AUTH-05, P1-RBAC-02, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/users.yaml#/components/schemas/CreateUserRequest'
+    responses:
+      '201':
+        description: User created.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/User'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/users/{userId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/UserId'
+  get:
+    tags: [users]
+    operationId: getUser
+    summary: Get a user
+    x-permission: USER_MANAGE
+    x-requirements: [P1-RBAC-01]
+    responses:
+      '200':
+        description: The user.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/User'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [users]
+    operationId: updateUser
+    summary: Update a user's details
+    description: Username cannot be changed. Stale version returns 409 VERSION_CONFLICT. Writes UPDATE (USER) with before/after.
+    x-permission: USER_MANAGE
+    x-requirements: [P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/users.yaml#/components/schemas/UpdateUserRequest'
+    responses:
+      '200':
+        description: User updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/User'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/users/{userId}/deactivate:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/UserId'
+  post:
+    tags: [users]
+    operationId: deactivateUser
+    summary: Deactivate a user
+    description: >-
+      The user can no longer log in and all their refresh tokens are revoked. Users are never deleted
+      (their history stays). 409 CANNOT_DEACTIVATE_SELF for your own account, 409 LAST_OWNER for the
+      last active user holding the Owner role. Already inactive returns 200 unchanged. Writes DEACTIVATE (USER).
+    x-permission: USER_MANAGE
+    x-requirements: [P1-RBAC-01, P1-AUD-01]
+    responses:
+      '200':
+        description: User deactivated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/User'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+
+/users/{userId}/activate:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/UserId'
+  post:
+    tags: [users]
+    operationId: activateUser
+    summary: Reactivate a deactivated user
+    description: Already active returns 200 unchanged. Writes ACTIVATE (USER).
+    x-permission: USER_MANAGE
+    x-requirements: [P1-RBAC-01, P1-AUD-01]
+    responses:
+      '200':
+        description: User active.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/User'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+
+/users/{userId}/unlock:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/UserId'
+  post:
+    tags: [users]
+    operationId: unlockUser
+    summary: Unlock a locked account and PIN
+    description: Clears the password lock and the PIN lock and resets both failed-attempt counters. Not locked returns 200 unchanged. Writes ACCOUNT_UNLOCKED.
+    x-permission: USER_MANAGE
+    x-requirements: [P1-AUTH-01, P1-AUTH-05, P1-AUD-01]
+    responses:
+      '200':
+        description: User unlocked.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/User'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+
+/users/{userId}/reset-password:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/UserId'
+  post:
+    tags: [users]
+    operationId: resetUserPassword
+    summary: Set a new password for a user
+    description: Also unlocks the account and revokes all the user's refresh tokens. Writes PASSWORD_RESET (no password values).
+    x-permission: USER_MANAGE
+    x-requirements: [P1-AUTH-01, P1-NFR-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/users.yaml#/components/schemas/ResetUserPasswordRequest'
+    responses:
+      '204':
+        description: Password reset.
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/users/{userId}/reset-pin:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/UserId'
+  post:
+    tags: [users]
+    operationId: resetUserPin
+    summary: Set a new approval PIN for a user
+    description: Also clears the PIN lock. Writes PIN_RESET (no PIN values).
+    x-permission: USER_MANAGE
+    x-requirements: [P1-AUTH-05, P1-NFR-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/users.yaml#/components/schemas/ResetUserPinRequest'
+    responses:
+      '204':
+        description: PIN reset.
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/users/{userId}/roles:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/UserId'
+  put:
+    tags: [users]
+    operationId: assignUserRoles
+    summary: Replace a user's roles
+    description: >-
+      Takes effect on the user's next token refresh (P1-RBAC-02). Unknown role ids return 422.
+      409 LAST_OWNER if this would leave no active user with the Owner role; 409 VERSION_CONFLICT on a stale version.
+      Writes ROLES_ASSIGNED with before/after role names.
+    x-permission: USER_MANAGE
+    x-requirements: [P1-RBAC-02, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/users.yaml#/components/schemas/AssignUserRolesRequest'
+    responses:
+      '200':
+        description: Roles assigned.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/users.yaml#/components/schemas/User'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'

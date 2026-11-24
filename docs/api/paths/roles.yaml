@@ -1,0 +1,180 @@
+# Paths: roles and permissions.
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-21 v0.1.0 initial M1.0 contract.
+# - 2026-11-21 v0.1.1 added GET /roles/options; added optional `key` (RoleKey) to Role, RoleSummary, RoleRef. Not breaking.
+/roles/options:
+  get:
+    tags: [roles]
+    operationId: listRoleOptions
+    summary: List roles to pick from when creating a user or assigning roles
+    description: >-
+      Narrow lookup for the user forms (USER_MANAGE), so they don't need ROLE_MANAGE. Same order as
+      listRoles: system roles first, then custom roles by name.
+    x-permission: USER_MANAGE
+    x-requirements: [P1-RBAC-02]
+    responses:
+      '200':
+        description: Role options.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/roles.yaml#/components/schemas/RoleOption'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/roles:
+  get:
+    tags: [roles]
+    operationId: listRoles
+    summary: List roles
+    description: All roles, system roles first, then by name. Not paged (a handful of roles).
+    x-permission: ROLE_MANAGE
+    x-requirements: [P1-RBAC-01, P1-RBAC-02]
+    responses:
+      '200':
+        description: All roles.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/roles.yaml#/components/schemas/RoleSummary'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [roles]
+    operationId: createRole
+    summary: Create a custom role
+    description: Name must be unique (409 ROLE_NAME_TAKEN). Writes CREATE (ROLE) to the audit log.
+    x-permission: ROLE_MANAGE
+    x-requirements: [P1-RBAC-02, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/roles.yaml#/components/schemas/CreateRoleRequest'
+    responses:
+      '201':
+        description: Role created.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/roles.yaml#/components/schemas/Role'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/roles/{roleId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/RoleId'
+  get:
+    tags: [roles]
+    operationId: getRole
+    summary: Get a role with its permissions
+    x-permission: ROLE_MANAGE
+    x-requirements: [P1-RBAC-01]
+    responses:
+      '200':
+        description: The role.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/roles.yaml#/components/schemas/Role'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [roles]
+    operationId: updateRole
+    summary: Update a role's name and permissions
+    description: >-
+      Replaces the permission set. System roles keep their name (409 SYSTEM_ROLE_READ_ONLY if it changes)
+      but their permissions can be edited, except the Owner role, which always holds every permission
+      (409 OWNER_ROLE_READ_ONLY). Changes reach users on their next token refresh. 409 ROLE_NAME_TAKEN,
+      409 VERSION_CONFLICT. Writes UPDATE (ROLE) with before/after permission codes.
+    x-permission: ROLE_MANAGE
+    x-requirements: [P1-RBAC-02, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/roles.yaml#/components/schemas/UpdateRoleRequest'
+    responses:
+      '200':
+        description: Role updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/roles.yaml#/components/schemas/Role'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+  delete:
+    tags: [roles]
+    operationId: deleteRole
+    summary: Delete a custom role
+    description: >-
+      Only custom roles: system roles return 409 SYSTEM_ROLE_READ_ONLY. A role still assigned to any user
+      (active or not) returns 409 ROLE_IN_USE; reassign those users first. Writes DELETE (ROLE) with the before snapshot.
+    x-permission: ROLE_MANAGE
+    x-requirements: [P1-RBAC-02, P1-AUD-01]
+    responses:
+      '204':
+        description: Role deleted.
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+
+/permissions:
+  get:
+    tags: [roles]
+    operationId: listPermissions
+    summary: List all permissions
+    description: Every permission the system checks, grouped by module, for the role editor.
+    x-permission: ROLE_MANAGE
+    x-requirements: [P1-RBAC-01, P1-RBAC-02]
+    responses:
+      '200':
+        description: All permissions.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/roles.yaml#/components/schemas/Permission'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'

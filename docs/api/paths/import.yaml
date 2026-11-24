@@ -1,0 +1,99 @@
+# Paths: import (M1.1, P1-IMP-01) - spreadsheet import of categories, menu items, modifier groups and tables.
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-22 v0.2.0 added for M1.1. Not breaking.
+/import/{importType}/template:
+  get:
+    tags: [import]
+    operationId: downloadImportTemplate
+    summary: 'Download an import template'
+    description: >-
+      An empty template with the header row and one example row, CSV (UTF-8) by default or XLSX.
+      Columns: categories: name, sort_order | menu_items: code, name, category, station (1-3),
+      local_price, foreign_price, modifier_groups (names separated by |), active (Y/N) |
+      modifier_groups: group, required (Y/N), min_select, max_select, option, price_delta (one
+      row per option) | tables: number, section, seats.
+    x-permission: DATA_IMPORT
+    x-requirements: [P1-IMP-01]
+    parameters:
+      - name: importType
+        in: path
+        required: true
+        schema:
+          $ref: '../components/import.yaml#/components/schemas/ImportType'
+      - name: format
+        in: query
+        required: false
+        description: 'File format. CSV when omitted.'
+        schema:
+          $ref: '../components/import.yaml#/components/schemas/ImportFileFormat'
+    responses:
+      '200':
+        description: 'The template file.'
+        content:
+          text/csv:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/import/{importType}:
+  post:
+    tags: [import]
+    operationId: importData
+    summary: 'Import a spreadsheet (or check it with a dry run)'
+    description: >-
+      Reads a CSV or XLSX file of the given type. Every row is validated first and the import is
+      all-or-nothing: if any row is invalid nothing is imported and the report lists each error
+      with row, column and reason, e.g. "menu_items row 14, local_price: 'abc' is not a number".
+      Rows match existing records by key (categories by name, menu items by code, modifier
+      groups by name, tables by number) and update them; nothing is duplicated. With
+      `dryRun=true` the file is checked and the counts are returned but nothing is saved. The
+      result is always 200 with a report: look at `ok`. 422 IMPORT_FILE_INVALID is only for a
+      file that cannot be read at all (not CSV / XLSX, too large). Writes DATA_IMPORTED (counts,
+      file name) unless dryRun.
+    x-permission: DATA_IMPORT
+    x-requirements: [P1-IMP-01, P1-AUD-01]
+    parameters:
+      - name: importType
+        in: path
+        required: true
+        schema:
+          $ref: '../components/import.yaml#/components/schemas/ImportType'
+      - name: dryRun
+        in: query
+        required: false
+        description: 'Validate only, save nothing. Default false.'
+        schema:
+          type: boolean
+          default: false
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../components/import.yaml#/components/schemas/ImportFileRequest'
+    responses:
+      '200':
+        description: 'Import report (ok or not ok).'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/import.yaml#/components/schemas/ImportReport'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+

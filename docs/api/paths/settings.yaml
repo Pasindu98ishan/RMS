@@ -1,0 +1,582 @@
+# Paths: settings (P1-SET-01..04, idle timeouts for P1-AUTH-03).
+# Every update writes SETTINGS_CHANGED to the audit log with before/after values.
+# Kitchen target times (P1-SET-05) live on the kitchen stations (paths/menu.yaml).
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-21 v0.1.0 initial M1.0 contract.
+# - 2026-11-22 v0.2.0 added for M1.1: delivery areas, reasons, menu setting. Not breaking.
+/settings/restaurant:
+  get:
+    tags: [settings]
+    operationId: getRestaurantDetails
+    summary: Get restaurant details printed on receipts
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-03]
+    responses:
+      '200':
+        description: Restaurant details.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/RestaurantDetails'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  put:
+    tags: [settings]
+    operationId: updateRestaurantDetails
+    summary: Update restaurant details printed on receipts
+    description: Applies to receipts printed from now on (including reprints). 409 VERSION_CONFLICT on a stale version.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateRestaurantDetailsRequest'
+    responses:
+      '200':
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/RestaurantDetails'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/settings/service-charges:
+  get:
+    tags: [settings]
+    operationId: getServiceChargeSettings
+    summary: Get service charge rate per order type
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-01]
+    responses:
+      '200':
+        description: Service charge rules.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/ServiceChargeSettings'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  put:
+    tags: [settings]
+    operationId: updateServiceChargeSettings
+    summary: Update service charge rate per order type
+    description: >-
+      Send all three order types, each once (422 otherwise). New rates apply to orders created from
+      now on; open orders keep the rate they were created with (ADR-002). 409 VERSION_CONFLICT.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-01, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateServiceChargeSettingsRequest'
+    responses:
+      '200':
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/ServiceChargeSettings'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/settings/tax:
+  get:
+    tags: [settings]
+    operationId: getTaxSettings
+    summary: Get the tax setting
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-02]
+    responses:
+      '200':
+        description: Tax setting (Phase 1 - disabled, 0.00).
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/TaxSettings'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  put:
+    tags: [settings]
+    operationId: updateTaxSettings
+    summary: Update the tax setting
+    description: >-
+      Rate and label can be stored, but enabled=true returns 409 TAX_NOT_SUPPORTED in Phase 1:
+      turning tax on needs an ADR-002 update first (client decision #2). 409 VERSION_CONFLICT.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-02, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateTaxSettingsRequest'
+    responses:
+      '200':
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/TaxSettings'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/settings/business-day:
+  get:
+    tags: [settings]
+    operationId: getBusinessDaySettings
+    summary: Get the business day start time
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-04]
+    responses:
+      '200':
+        description: Business day setting.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/BusinessDaySettings'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  put:
+    tags: [settings]
+    operationId: updateBusinessDaySettings
+    summary: Update the business day start time
+    description: Takes effect from the next business day; an open business day is not changed. 409 VERSION_CONFLICT.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-04, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateBusinessDaySettingsRequest'
+    responses:
+      '200':
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/BusinessDaySettings'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/settings/idle-timeouts:
+  get:
+    tags: [settings]
+    operationId: getIdleTimeoutSettings
+    summary: Get idle logout time per terminal type
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-AUTH-03]
+    responses:
+      '200':
+        description: Idle timeout rules for all terminal types.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/IdleTimeoutSettings'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  put:
+    tags: [settings]
+    operationId: updateIdleTimeoutSettings
+    summary: Update idle logout time per terminal type
+    description: >-
+      Send CASHIER_POS, RECEPTION_POS and ADMIN, each once (1 to 240 minutes). KITCHEN and DISPLAY are
+      exempt and rejected with 422. Terminals pick up the new value at their next login or token refresh.
+      409 VERSION_CONFLICT.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-AUTH-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateIdleTimeoutSettingsRequest'
+    responses:
+      '200':
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/IdleTimeoutSettings'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/delivery-areas:
+  get:
+    tags: [settings]
+    operationId: listDeliveryAreas
+    summary: 'List delivery areas'
+    description: >-
+      All areas including inactive ones, by name. Not paged.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-07]
+    responses:
+      '200':
+        description: 'Areas.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/settings.yaml#/components/schemas/DeliveryArea'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [settings]
+    operationId: createDeliveryArea
+    summary: 'Create a delivery area'
+    description: >-
+      The fee is added as a bill line on delivery orders (M1.2). Not negative. 409
+      DELIVERY_AREA_NAME_TAKEN. Writes CREATE (DELIVERY_AREA).
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-07, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/CreateDeliveryAreaRequest'
+    responses:
+      '201':
+        description: 'Area created.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/DeliveryArea'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/delivery-areas/options:
+  get:
+    tags: [settings]
+    operationId: listDeliveryAreaOptions
+    summary: 'List active delivery areas to pick from'
+    description: >-
+      Narrow lookup for the delivery order screen: active areas with their fee, by name. Needs
+      ORDER_CREATE.
+    x-permission: ORDER_CREATE
+    x-requirements: [P1-SET-07]
+    responses:
+      '200':
+        description: 'Area options.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/settings.yaml#/components/schemas/DeliveryAreaOption'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/delivery-areas/{areaId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/DeliveryAreaId'
+  get:
+    tags: [settings]
+    operationId: getDeliveryArea
+    summary: 'Get a delivery area'
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-07]
+    responses:
+      '200':
+        description: 'The area.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/DeliveryArea'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [settings]
+    operationId: updateDeliveryArea
+    summary: 'Update a delivery area'
+    description: >-
+      Areas are never deleted: set `active` to false. A new fee applies to orders created from
+      now on. 409 DELIVERY_AREA_NAME_TAKEN, 409 VERSION_CONFLICT. Writes UPDATE (DELIVERY_AREA)
+      with before/after.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-07, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateDeliveryAreaRequest'
+    responses:
+      '200':
+        description: 'Area updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/DeliveryArea'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/reasons:
+  get:
+    tags: [settings]
+    operationId: listReasons
+    summary: 'List reasons'
+    description: >-
+      All reasons including inactive ones, by category then text. Not paged.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-08]
+    parameters:
+      - name: category
+        in: query
+        required: false
+        description: 'Only reasons of this list.'
+        schema:
+          $ref: '../components/settings.yaml#/components/schemas/ReasonCategory'
+    responses:
+      '200':
+        description: 'Reasons.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/settings.yaml#/components/schemas/Reason'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [settings]
+    operationId: createReason
+    summary: 'Add a reason to a list'
+    description: >-
+      409 REASON_TEXT_TAKEN (same text in the same list). Writes CREATE (REASON).
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-08, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/CreateReasonRequest'
+    responses:
+      '201':
+        description: 'Reason created.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/Reason'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/reasons/options:
+  get:
+    tags: [settings]
+    operationId: listReasonOptions
+    summary: 'List active reasons of one list to pick from'
+    description: >-
+      Narrow lookup for the reason dialogs (cancel, void, refund, petty cash, other discount):
+      active reasons of one category, by text. Needs ORDER_VIEW, which every role that opens
+      these dialogs holds.
+    x-permission: ORDER_VIEW
+    x-requirements: [P1-SET-08]
+    parameters:
+      - name: category
+        in: query
+        required: true
+        description: 'The reason list to return.'
+        schema:
+          $ref: '../components/settings.yaml#/components/schemas/ReasonCategory'
+    responses:
+      '200':
+        description: 'Reason options.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/settings.yaml#/components/schemas/ReasonOption'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/reasons/{reasonId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/ReasonId'
+  put:
+    tags: [settings]
+    operationId: updateReason
+    summary: 'Update a reason'
+    description: >-
+      Change the text or deactivate it. Reasons are never deleted (past records refer to them)
+      and cannot change list. 409 REASON_TEXT_TAKEN, 409 VERSION_CONFLICT. Writes UPDATE
+      (REASON).
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-SET-08, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateReasonRequest'
+    responses:
+      '200':
+        description: 'Reason updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/Reason'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/settings/menu:
+  get:
+    tags: [settings]
+    operationId: getMenuSettings
+    summary: 'Get the menu behaviour setting'
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-MENU-06]
+    responses:
+      '200':
+        description: 'Menu setting.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/MenuSettings'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  put:
+    tags: [settings]
+    operationId: updateMenuSettings
+    summary: 'Update the menu behaviour setting'
+    description: >-
+      Switch the automatic daily reset of sold-out items on or off. 409 VERSION_CONFLICT. Writes
+      SETTINGS_CHANGED.
+    x-permission: SETTINGS_MANAGE
+    x-requirements: [P1-MENU-06, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/settings.yaml#/components/schemas/UpdateMenuSettingsRequest'
+    responses:
+      '200':
+        description: 'Updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/settings.yaml#/components/schemas/MenuSettings'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+

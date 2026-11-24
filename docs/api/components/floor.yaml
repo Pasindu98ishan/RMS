@@ -1,0 +1,160 @@
+# Floor module (M1.1): ordering points, tables, floor plan.
+# Tables are never deleted, only deactivated. The floor plan is a 1000 x 700 logical grid (m1.1-scope.md decision 7);
+# x and y are the CENTRE of the table on that grid.
+components:
+  schemas:
+    OrderingPoint:
+      type: object
+      description: 'Where an order is taken: the Cashier counter or Reception (P1-FLOOR-02). Seeded, not editable.'
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Cashier']
+    TableNumber:
+      type: string
+      description: Table label shown to staff, 1-10 characters (letters, digits, dash). Unique, case-insensitive.
+      pattern: '^[A-Za-z0-9-]{1,10}$'
+      examples: ['G1']
+    GridX:
+      type: integer
+      minimum: 0
+      maximum: 1000
+      description: Horizontal position of the table's CENTRE on the 1000 x 700 floor-plan grid (0 = left edge).
+    GridY:
+      type: integer
+      minimum: 0
+      maximum: 700
+      description: Vertical position of the table's CENTRE on the 1000 x 700 floor-plan grid (0 = top edge).
+    DiningTable:
+      type: object
+      required: [id, number, section, seats, x, y, active, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          $ref: '#/components/schemas/TableNumber'
+        section:
+          type: string
+          examples: ['Indoor']
+        seats:
+          type: integer
+          minimum: 1
+          maximum: 50
+        x:
+          $ref: '#/components/schemas/GridX'
+        y:
+          $ref: '#/components/schemas/GridY'
+        active:
+          type: boolean
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateTableRequest:
+      type: object
+      required: [number, section, seats]
+      properties:
+        number:
+          $ref: '#/components/schemas/TableNumber'
+        section:
+          type: string
+          minLength: 1
+          maxLength: 30
+        seats:
+          type: integer
+          minimum: 1
+          maximum: 50
+        x:
+          $ref: '#/components/schemas/GridX'
+        y:
+          $ref: '#/components/schemas/GridY'
+        active:
+          type: boolean
+          description: Defaults to true.
+    UpdateTableRequest:
+      type: object
+      description: Table details. Position is changed through saveTablePositions.
+      required: [number, section, seats, active, version]
+      properties:
+        number:
+          $ref: '#/components/schemas/TableNumber'
+        section:
+          type: string
+          minLength: 1
+          maxLength: 30
+        seats:
+          type: integer
+          minimum: 1
+          maximum: 50
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: Version from the last GET.
+    TablePosition:
+      type: object
+      required: [tableId, x, y, version]
+      properties:
+        tableId:
+          type: string
+          format: uuid
+        x:
+          $ref: '#/components/schemas/GridX'
+        y:
+          $ref: '#/components/schemas/GridY'
+        version:
+          type: integer
+          description: The table's version from the last GET (409 VERSION_CONFLICT if it changed).
+    SaveTablePositionsRequest:
+      type: object
+      required: [positions]
+      properties:
+        positions:
+          type: array
+          minItems: 1
+          maxItems: 200
+          description: New positions; tables not listed are left where they are.
+          items:
+            $ref: '#/components/schemas/TablePosition'
+    FloorTable:
+      type: object
+      description: A table as the POS floor view needs it.
+      required: [id, number, section, seats, x, y]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          $ref: '#/components/schemas/TableNumber'
+        section:
+          type: string
+        seats:
+          type: integer
+        x:
+          $ref: '#/components/schemas/GridX'
+        y:
+          $ref: '#/components/schemas/GridY'
+    FloorLayout:
+      type: object
+      description: Active tables with their positions. Live table status (occupied, bill requested) is added in M1.2.
+      required: [width, height, tables]
+      properties:
+        width:
+          type: integer
+          description: Grid width (1000).
+        height:
+          type: integer
+          description: Grid height (700).
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/FloorTable'

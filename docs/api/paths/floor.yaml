@@ -1,0 +1,216 @@
+# Paths: floor (M1.1) - ordering points, tables and the floor plan. Tables are never deleted, only deactivated.
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-22 v0.2.0 added for M1.1. Not breaking.
+/ordering-points:
+  get:
+    tags: [floor]
+    operationId: listOrderingPoints
+    summary: 'List ordering points'
+    description: >-
+      The two seeded ordering points (Cashier, Reception) so terminal setup can pick one. Needs
+      TERMINAL_MANAGE. POS screens get their own ordering point from the terminal in the
+      session.
+    x-permission: TERMINAL_MANAGE
+    x-requirements: [P1-FLOOR-02, P1-AUTH-04]
+    responses:
+      '200':
+        description: 'Ordering points.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/floor.yaml#/components/schemas/OrderingPoint'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/tables:
+  get:
+    tags: [floor]
+    operationId: listTables
+    summary: 'List tables'
+    description: >-
+      All tables including inactive ones, by section then number. Not paged.
+    x-permission: FLOOR_MANAGE
+    x-requirements: [P1-FLOOR-01]
+    parameters:
+      - name: active
+        in: query
+        required: false
+        description: 'Only active (true) or only inactive (false) tables. Both when omitted.'
+        schema:
+          type: boolean
+      - name: section
+        in: query
+        required: false
+        description: 'Only tables of this section.'
+        schema:
+          type: string
+          maxLength: 30
+    responses:
+      '200':
+        description: 'Tables.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/floor.yaml#/components/schemas/DiningTable'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [floor]
+    operationId: createTable
+    summary: 'Create a table'
+    description: >-
+      Without x / y the table is placed at the next free spot of the grid. 409
+      TABLE_NUMBER_TAKEN. Writes CREATE (DINING_TABLE).
+    x-permission: FLOOR_MANAGE
+    x-requirements: [P1-FLOOR-01, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/floor.yaml#/components/schemas/CreateTableRequest'
+    responses:
+      '201':
+        description: 'Table created.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/floor.yaml#/components/schemas/DiningTable'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/tables/positions:
+  put:
+    tags: [floor]
+    operationId: saveTablePositions
+    summary: 'Save the floor-plan positions'
+    description: >-
+      Saves the positions of the tables the editor moved, all or nothing. Returns the updated
+      tables (new versions). 422 for an unknown table id or a position outside the 1000 x 700
+      grid, 409 VERSION_CONFLICT if any table changed. Writes UPDATE (DINING_TABLE) per moved
+      table.
+    x-permission: FLOOR_MANAGE
+    x-requirements: [P1-FLOOR-01, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/floor.yaml#/components/schemas/SaveTablePositionsRequest'
+    responses:
+      '200':
+        description: 'Positions saved.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/floor.yaml#/components/schemas/DiningTable'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/tables/{tableId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/DiningTableId'
+  get:
+    tags: [floor]
+    operationId: getTable
+    summary: 'Get a table'
+    x-permission: FLOOR_MANAGE
+    x-requirements: [P1-FLOOR-01]
+    responses:
+      '200':
+        description: 'The table.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/floor.yaml#/components/schemas/DiningTable'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [floor]
+    operationId: updateTable
+    summary: 'Update a table'
+    description: >-
+      Number, section, seats and the active flag. Tables are never deleted: set `active` to
+      false. 409 TABLE_NUMBER_TAKEN, 409 VERSION_CONFLICT. Writes UPDATE (DINING_TABLE).
+    x-permission: FLOOR_MANAGE
+    x-requirements: [P1-FLOOR-01, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/floor.yaml#/components/schemas/UpdateTableRequest'
+    responses:
+      '200':
+        description: 'Table updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/floor.yaml#/components/schemas/DiningTable'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/floor/layout:
+  get:
+    tags: [floor]
+    operationId: getFloorLayout
+    summary: 'Get the floor plan for the POS'
+    description: >-
+      Active tables with number, section, seats and position on the 1000 x 700 grid, for the POS
+      home screen. Live table status is added in M1.2. Needs ORDER_VIEW.
+    x-permission: ORDER_VIEW
+    x-requirements: [P1-FLOOR-01]
+    responses:
+      '200':
+        description: 'The floor plan.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/floor.yaml#/components/schemas/FloorLayout'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+

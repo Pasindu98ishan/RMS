@@ -41,17 +41,17 @@ branch ─┬─ terminal
 ### Access
 | Table | Key columns |
 |---|---|
-| `app_user` | username (unique), password_hash, pin_hash, full_name, phone, active, locked_until, failed_attempts, pin_failed_attempts, employee_id (nullable, Phase 5) |
+| `app_user` | username (unique), password_hash, pin_hash, full_name, phone, active, locked_until, failed_attempts, pin_failed_attempts, pin_locked_until, employee_id (nullable, Phase 5) |
 | `role` | name, system (bool — seeded roles can't be deleted) |
 | `permission` | code (e.g. `ORDER_CREATE`), description, module |
 | `user_role`, `role_permission` | join tables |
 | `terminal` | name, type (`CASHIER_POS`,`RECEPTION_POS`,`KITCHEN`,`ADMIN`,`DISPLAY`), kitchen_station_id (for KITCHEN), ordering_point_id, device_token_hash, active |
-| `refresh_token` | user_id, terminal_id, token_hash, expires_at, revoked_at |
+| `refresh_token` | user_id, terminal_id (null for a personal session, ADR-008), session_id, token_hash, expires_at, revoked_at |
 
 ### Settings
 | Table | Key columns |
 |---|---|
-| `setting` | key, value (jsonb) — restaurant details, business_day_start, tax_enabled=false, tax_rate=0, idle timeouts |
+| `setting` | key, value (jsonb) — restaurant details, business_day_start, tax_enabled=false, tax_rate=0, idle timeouts, `menu` (resetAvailabilityDaily), `availability_reset` (last daily sold-out reset marker) |
 | `service_charge_rule` | order_type, rate |
 | `delivery_area` | name, fee, active |
 | `reason` | category (`CANCEL`,`VOID`,`REFUND`,`PETTY_CASH`,`DISCOUNT_OTHER`), text, active |
@@ -64,10 +64,10 @@ branch ─┬─ terminal
 | `category` | name, sort_order, active |
 | `menu_item` | code (unique), name, category_id, kitchen_station_id **NOT NULL**, active, available, cost_snapshot fields reserved for Phase 2 |
 | `menu_item_price` | menu_item_id, price_list (`LOCAL`,`FOREIGN`), price — unique (item, list) |
-| `modifier_group` | name, required, min_select, max_select |
+| `modifier_group` | name, required, min_select, max_select, active |
 | `modifier_option` | group_id, name, price_delta, sort_order |
 | `menu_item_modifier_group` | menu_item_id, modifier_group_id |
-| `ordering_point` | name (`Cashier`, `Reception`) |
+| `ordering_point` | name (`Cashier`, `Reception`), sort_order |
 | `dining_table` | number, section, seats, pos_x, pos_y, active |
 
 ### Customers and riders (Phase 1 basic)
@@ -114,7 +114,7 @@ branch ─┬─ terminal
 |---|---|
 | `print_job` | terminal_id, type (`RECEIPT`,`X_REPORT`,`Z_REPORT`,`SHIFT_CLOSE`), payload (jsonb), status (`QUEUED`,`SENT`,`PRINTED`,`FAILED`), attempts, error |
 | `notification` | user_id / role, type, title, body, read_at |
-| `audit_log` | at, user_id, terminal_id, action, entity_type, entity_id, before (jsonb), after (jsonb), approver_id, reason — append-only, no UPDATE/DELETE grant |
+| `audit_log` | at, user_id, terminal_id (null in a personal session), client_info (IP + trimmed User-Agent, ADR-008), action, entity_type, entity_id, before (jsonb), after (jsonb), approver_id, reason — append-only, no UPDATE/DELETE grant |
 | `idempotency_record` | key, endpoint, user_id, response_hash, created_at (24 h retention) |
 
 ## Key indexes and constraints

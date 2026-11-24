@@ -1,0 +1,67 @@
+{
+  "name": "rms-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "RMS (Santhula Hotel) web app: POS, kitchen display, admin, rider PWA.",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "api:bundle": "redocly bundle ../docs/api/openapi.yaml -o ../build/openapi.bundled.yaml",
+    "api:types": "openapi-typescript ../build/openapi.bundled.yaml -o src/api/generated/schema.d.ts",
+    "api:meta": "node scripts/gen-api-meta.mjs ../build/openapi.bundled.yaml src/api/generated/operations.ts",
+    "api:gen": "npm run api:bundle && npm run api:types && npm run api:meta",
+    "predev": "npm run api:gen",
+    "dev": "vite",
+    "predev:mock": "npm run api:gen",
+    "dev:mock": "vite --mode mock",
+    "prebuild": "npm run api:gen",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pretype-check": "npm run api:gen",
+    "type-check": "vue-tsc --build --force",
+    "pretest": "npm run api:gen",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings=0 && prettier --check src scripts",
+    "format": "prettier --write src scripts"
+  },
+  "dependencies": {
+    "@primeuix/themes": "1.2.5",
+    "openapi-fetch": "0.13.8",
+    "pinia": "3.0.4",
+    "primeicons": "7.0.0",
+    "primevue": "4.5.5",
+    "vue": "3.5.46",
+    "vue-router": "4.6.5"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.82.0",
+    "@types/node": "22.20.5",
+    "@vitejs/plugin-vue": "6.0.11",
+    "@vue/eslint-config-prettier": "10.2.0",
+    "@vue/eslint-config-typescript": "14.9.0",
+    "@vue/test-utils": "2.4.11",
+    "@vue/tsconfig": "0.8.1",
+    "eslint": "9.39.5",
+    "eslint-plugin-vue": "10.12.1",
+    "jsdom": "26.1.0",
+    "msw": "2.15.0",
+    "openapi-msw": "1.3.0",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.10.1",
+    "typescript": "5.9.3",
+    "vite": "7.3.8",
+    "vite-plugin-pwa": "1.3.0",
+    "vitest": "3.2.7",
+    "vue-tsc": "3.3.14",
+    "workbox-window": "7.4.1",
+    "yaml": "2.9.1"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

@@ -85,7 +85,7 @@ Large phase, so it is split into milestones. Each milestone is BE + FE + QA.
 | Project scaffold, Docker Compose (app + Postgres), Flyway, CI | Vite/Vue/TS scaffold, PrimeVue, layouts per role (POS, Kitchen, Admin, Rider-later) | Test harness: Testcontainers base class, Playwright project, seed-data script |
 | **OpenAPI pipeline:** `docs/api/` skeleton (root, `common.yaml`, `auth` paths), redocly lint + bundle, `openapi-generator-maven-plugin`, Jackson BigDecimal-as-string, `x-permission` ↔ `@PreAuthorize` check test, `oasdiff` in CI | `npm run api:gen` (openapi-typescript), `openapi-fetch` client with auth / terminal / idempotency / problem+json middleware, `openapi-msw` mock setup | Permission-matrix test generator that reads `x-permission` from the bundled spec |
 | Auth: login, JWT + refresh, idle timeout; terminal registration | Login, role-guarded routes, idle logout, terminal setup | Auth + permission matrix tests (every role × every route) |
-| Users, roles, permissions (seed 8 roles), manager/owner PIN check endpoint | Admin: users, roles/permission editor | |
+| Users, roles, permissions (seed 8 roles), PIN hashing + lockout (PINs are checked inline in approval actions; no separate verify endpoint) | Admin: users, roles/permission editor | |
 | Audit log module + query API | Audit log viewer (admin) | |
 | Settings: tax, service charge per order type, business day | Settings screens | |
 
@@ -133,6 +133,7 @@ Large phase, so it is split into milestones. Each milestone is BE + FE + QA.
 #### M1.6 UAT & go-live (week 5)
 - Staging + production deploy, HTTPS, backups verified by a restore test.
 - Load client menu/tables/users; on-site printer + KDS setup.
+- UI polish (owner feedback 2026-11-24): admin pages are capped at 1200 px and left-aligned (`.page` in `frontend/src/styles/main.css`), leaving empty space on wide monitors. Table pages (Items, Users, Audit log, Reasons, Delivery areas) should use the full width; form pages (Settings, Import, Kitchens) stay narrow. Also check the sidebar/logo left edge is not clipped on a 1920 px screen.
 - qa-engineer runs full Phase 1 regression; staff test week.
 - **Exit:** POS live in the restaurant → 25% payment.
 

@@ -1,0 +1,2 @@
+# Operations that exist in the contract but have no controller yet. Empty: every operation is implemented (M1.1 done).
+# PermissionContractTest fails if an operation listed here IS implemented, or if one that is not listed is missing.

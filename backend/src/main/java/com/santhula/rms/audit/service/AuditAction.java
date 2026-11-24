@@ -1,0 +1,35 @@
+package com.santhula.rms.audit.service;
+
+/** Audit actions (mirrors the AuditAction enum in docs/api/components/audit.yaml). */
+public enum AuditAction {
+    LOGIN,
+    LOGIN_FAILED,
+    LOGOUT,
+    ACCOUNT_LOCKED,
+    ACCOUNT_UNLOCKED,
+    PASSWORD_CHANGED,
+    PASSWORD_RESET,
+    PIN_CHANGED,
+    PIN_RESET,
+    PIN_FAILED,
+    PIN_LOCKED,
+    CREATE,
+    UPDATE,
+    DELETE,
+    ACTIVATE,
+    DEACTIVATE,
+    ROLES_ASSIGNED,
+    TERMINAL_REGISTERED,
+    SETTINGS_CHANGED,
+    PRICE_CHANGED,
+    DISCOUNT_APPLIED,
+    DISCOUNT_REMOVED,
+    LINE_CANCELLED,
+    BILL_VOIDED,
+    REFUND,
+    SHIFT_OPENED,
+    SHIFT_CLOSED,
+    DAY_END,
+    AUDIT_EXPORTED,
+    DATA_IMPORTED
+}

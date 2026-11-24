@@ -1,0 +1,51 @@
+# Redocly CLI config for the RMS API contract (docs/api/openapi.yaml).
+# Pinned CLI version: @redocly/cli@2.82.0
+#   npx --yes @redocly/cli@2.82.0 lint docs/api/openapi.yaml
+#   npx --yes @redocly/cli@2.82.0 bundle docs/api/openapi.yaml -o build/openapi.bundled.yaml
+# No `apis:` block on purpose: openapi-typescript also reads this file and, if `apis` is present,
+# ignores its CLI input and demands an `x-openapi-ts.output` key. Always pass the root file path.
+
+extends:
+  - recommended
+
+rules:
+  # Private client system, not published or licensed to third parties: a license field is noise.
+  info-license: off
+
+  # Spec rules from docs/api/conventions.md, enforced in CI.
+  rule/operation-x-permission:
+    subject:
+      type: Operation
+      property: x-permission
+    message: Every operation needs x-permission (a permission code, AUTHENTICATED or PUBLIC).
+    severity: error
+    assertions:
+      defined: true
+      pattern: '/^[A-Z][A-Z0-9_]*$/'
+  rule/operation-x-requirements:
+    subject:
+      type: Operation
+      property: x-requirements
+    message: Every operation needs x-requirements (requirement IDs such as P1-AUTH-01).
+    severity: error
+    assertions:
+      defined: true
+      nonEmpty: true
+  rule/operation-x-terminal:
+    subject:
+      type: Operation
+      property: x-terminal
+    message: x-terminal is optional; when present its only value is REQUIRED (the operation needs a terminal session, ADR-008).
+    severity: error
+    assertions:
+      enum: [REQUIRED]
+  rule/operation-one-tag:
+    subject:
+      type: Operation
+      property: tags
+    message: Every operation has exactly one tag (= module).
+    severity: error
+    assertions:
+      defined: true
+      minLength: 1
+      maxLength: 1

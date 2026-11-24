@@ -13,6 +13,8 @@ Rules every endpoint follows. The contract is OpenAPI 3.1 in `docs/api/`, writte
 ## Auth
 - `POST /auth/login` → `{accessToken, refreshToken, user, permissions[]}`.
 - `Authorization: Bearer <accessToken>` on every call; `X-Terminal-Id: <uuid>` on every call from a registered device.
+- Two kinds of session (ADR-008): a **terminal session** (login with `X-Terminal-Id` + `deviceToken`; the header is then required on every call and must match the token) and a **personal session** (login without them, only for users holding `LOGIN_ANY_DEVICE`; the header must then be absent). A header on the wrong kind of session gets 403 `TERMINAL_MISMATCH`.
+- `x-terminal: REQUIRED` on an operation means it needs a terminal session; a personal session gets 403 `TERMINAL_REQUIRED` (checked with the permission, before any 400/422). Unmarked operations work in either session. The server enforces it from the bundled contract, so marking an operation in the spec is all it takes.
 - `POST /auth/refresh`, `POST /auth/logout`.
 - Permissions checked server-side with `@PreAuthorize("hasAuthority('ORDER_CREATE')")`. Codes in [`../security/roles-permissions.md`](../security/roles-permissions.md).
 
@@ -48,7 +50,7 @@ Editable resources return `version`; updates send it back. Stale version → 409
 |---|---|
 | 400 | Malformed request |
 | 401 | Not logged in / token expired |
-| 403 | Missing permission, approval required/invalid |
+| 403 | Missing permission, approval required/invalid, terminal session required (`TERMINAL_REQUIRED`, `TERMINAL_REQUIRED_FOR_USER`) |
 | 404 | Not found (or not visible to this user/station) |
 | 409 | Illegal state transition, version conflict, day closed, duplicate |
 | 422 | Validation failed (`fieldErrors`) |
@@ -88,7 +90,7 @@ docs/api/
 - CI: `redocly lint`, `oasdiff breaking` against `main`.
 
 ### Spec rules
-- Every operation has: `operationId` (camelCase verb, e.g. `sendOrderToKitchen`), exactly one tag (= module), `x-permission`, `x-requirements`, and `x-approval` / `x-idempotent` where they apply.
+- Every operation has: `operationId` (camelCase verb, e.g. `sendOrderToKitchen`), exactly one tag (= module), `x-permission`, `x-requirements`, and `x-approval` / `x-idempotent` / `x-terminal: REQUIRED` where they apply.
 - Every schema is a named component. No inline object schemas in operations (they generate ugly class names like `InlineObject3`).
 - Mark `required` and `nullable` correctly. They become `@NotNull` in Java and non-optional fields in TypeScript.
 - Enums are named components (`OrderType`, `OrderStatus`), UPPER_SNAKE values.

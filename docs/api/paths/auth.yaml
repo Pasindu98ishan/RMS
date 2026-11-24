@@ -1,0 +1,193 @@
+# Paths: auth (login, tokens, own account).
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-21 v0.1.0 initial M1.0 contract.
+# - 2026-11-24 v0.3.0 personal sessions (ADR-008). Additive for existing callers: X-Terminal-Id and
+#   deviceToken became optional on login and refresh (still sent together for a terminal session);
+#   AuthSession / CurrentUserProfile gained required `sessionType`, and `terminal` became optional
+#   (always present in a TERMINAL session, absent in a PERSONAL one). New 403 TERMINAL_REQUIRED_FOR_USER.
+/auth/login:
+  post:
+    tags: [auth]
+    operationId: login
+    summary: Log in with username and password
+    description: >-
+      Two kinds of login (ADR-008). **Terminal session:** X-Terminal-Id header + deviceToken in the
+      body, from a registered device; an unregistered or deactivated terminal gets 403
+      TERMINAL_NOT_REGISTERED / TERMINAL_INACTIVE and can only use terminal registration.
+      **Personal session:** neither header nor deviceToken; only for users holding LOGIN_ANY_DEVICE.
+      A user without it gets 403 TERMINAL_REQUIRED_FOR_USER once the password is known to be right
+      (this does not count towards the account lock; a wrong password does). Sending only one of the
+      header and deviceToken returns 422 (field `deviceToken`).
+      Wrong username or password returns 401 INVALID_CREDENTIALS without saying which part was wrong.
+      The 5th wrong password in a row locks the account for 15 minutes (423 ACCOUNT_LOCKED); the owner can unlock it.
+      A deactivated user gets 401 INVALID_CREDENTIALS. Writes LOGIN / LOGIN_FAILED / ACCOUNT_LOCKED to the audit log
+      (a refused personal login is LOGIN_FAILED with reason TERMINAL_REQUIRED_FOR_USER).
+    security: []
+    x-permission: PUBLIC
+    x-requirements: [P1-AUTH-01, P1-AUTH-02, P1-AUTH-03, P1-AUTH-04, P1-AUD-01]
+    parameters:
+      - $ref: '../components/common.yaml#/components/parameters/TerminalId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/auth.yaml#/components/schemas/LoginRequest'
+    responses:
+      '200':
+        description: Logged in.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/auth.yaml#/components/schemas/AuthSession'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+      '423':
+        $ref: '../components/common.yaml#/components/responses/Locked'
+
+/auth/refresh:
+  post:
+    tags: [auth]
+    operationId: refreshToken
+    summary: Get a new access token with a refresh token
+    description: >-
+      Rotates the refresh token: the one sent is revoked and a new one (valid up to 12 h from now) is
+      returned with a new access token. Permissions are re-read, so role changes take effect here
+      (P1-RBAC-02). The X-Terminal-Id header must match the session kind: the token's terminal for a
+      terminal session, absent for a personal session (401 REFRESH_TOKEN_INVALID otherwise).
+      An unknown, expired, revoked or reused token, or a deactivated user / terminal, returns 401 REFRESH_TOKEN_INVALID.
+      A personal session whose user no longer holds LOGIN_ANY_DEVICE gets 403 TERMINAL_REQUIRED_FOR_USER
+      and the session ends.
+    security: []
+    x-permission: PUBLIC
+    x-requirements: [P1-AUTH-02, P1-RBAC-02]
+    parameters:
+      - $ref: '../components/common.yaml#/components/parameters/TerminalId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/auth.yaml#/components/schemas/RefreshTokenRequest'
+    responses:
+      '200':
+        description: New tokens issued.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/auth.yaml#/components/schemas/AuthSession'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/auth/logout:
+  post:
+    tags: [auth]
+    operationId: logout
+    summary: Log out and revoke the refresh token
+    description: >-
+      Revokes the given refresh token (it must belong to the caller). Used for both manual and idle
+      logout (`reason`). Writes LOGOUT to the audit log. Idempotent: an already revoked token still returns 204.
+    x-permission: AUTHENTICATED
+    x-requirements: [P1-AUTH-02, P1-AUTH-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/auth.yaml#/components/schemas/LogoutRequest'
+    responses:
+      '204':
+        description: Logged out.
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/auth/me:
+  get:
+    tags: [auth]
+    operationId: getCurrentUser
+    summary: Get the logged-in user, permissions and session
+    description: Used by the UI after a reload to rebuild its session state. Permissions are those in the current access token.
+    x-permission: AUTHENTICATED
+    x-requirements: [P1-RBAC-01, P1-AUTH-03, P1-AUTH-04]
+    responses:
+      '200':
+        description: The current user.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/auth.yaml#/components/schemas/CurrentUserProfile'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+
+/auth/me/password:
+  post:
+    tags: [auth]
+    operationId: changeOwnPassword
+    summary: Change my password
+    description: >-
+      A wrong current password returns 422 with a field error on `currentPassword` and counts as a
+      failed login attempt (5 in a row lock the account, 423). Other sessions of this user are revoked;
+      the calling session stays logged in. Writes PASSWORD_CHANGED to the audit log (no password values).
+    x-permission: AUTHENTICATED
+    x-requirements: [P1-AUTH-01, P1-NFR-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/auth.yaml#/components/schemas/ChangeOwnPasswordRequest'
+    responses:
+      '204':
+        description: Password changed.
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+      '423':
+        $ref: '../components/common.yaml#/components/responses/Locked'
+
+/auth/me/pin:
+  post:
+    tags: [auth]
+    operationId: setOwnPin
+    summary: Set or change my approval PIN
+    description: >-
+      Confirms identity with the user's password (wrong password handled as in changeOwnPassword).
+      The PIN is stored hashed and its failed-attempt counter is cleared. Writes PIN_CHANGED to the audit log.
+    x-permission: AUTHENTICATED
+    x-requirements: [P1-AUTH-05, P1-NFR-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/auth.yaml#/components/schemas/SetOwnPinRequest'
+    responses:
+      '204':
+        description: PIN set.
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+      '423':
+        $ref: '../components/common.yaml#/components/responses/Locked'

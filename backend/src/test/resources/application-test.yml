@@ -1,0 +1,16 @@
+# Integration tests (Spring profile `test`). The datasource / Flyway URLs come from Testcontainers.
+rms:
+  menu:
+    # The daily sold-out reset is driven by the tests themselves (AvailabilityResetIT) with the test clock.
+    reset-scheduler-enabled: false
+  security:
+    bcrypt-strength: 4
+  bootstrap:
+    owner-username: owner
+    owner-password: owner-test-pass
+    owner-pin: "1234"
+    owner-full-name: Test Owner
+logging:
+  level:
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN

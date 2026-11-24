@@ -1,0 +1,219 @@
+openapi: 3.1.0
+info:
+  title: RMS API
+  version: 0.3.0
+  summary: Restaurant Management System for Santhula Hotel.
+  description: >-
+    Contract for the RMS backend (contract-first, ADR-005). Rules every endpoint follows are in
+    `docs/api/conventions.md`.
+
+
+    **Auth.** Every call sends `Authorization: Bearer <accessToken>` (except login, refresh and
+    terminal registration). There are two kinds of session (ADR-008). A **terminal session** is
+    started from a registered device and sends `X-Terminal-Id: <uuid>` on every call; it must match
+    the terminal in the access token. A **personal session** is started without a terminal (users
+    holding LOGIN_ANY_DEVICE only) and must not send the header. A header on the wrong kind of
+    session gets 403 TERMINAL_MISMATCH.
+
+
+    **Extensions.** `x-permission` (permission code checked server-side; `AUTHENTICATED` = any
+    logged-in user, `PUBLIC` = no token), `x-requirements` (requirement IDs), `x-approval`
+    (MANAGER / OWNER PIN approval inline), `x-idempotent` (requires `Idempotency-Key`),
+    `x-auth: INLINE_CREDENTIALS` (credentials in the body instead of a token; the user must hold
+    `x-permission`), `x-terminal: REQUIRED` (needs a terminal session; a personal session gets 403
+    TERMINAL_REQUIRED. No M1.0 / M1.1 operation is marked; orders, payments, shifts and kitchen
+    screens are, from M1.2).
+
+
+    M1.0 Foundation: auth, users, roles, terminals, audit, settings.
+
+
+    M1.1 Catalog & floor: kitchen stations, categories, menu items and modifiers, tables and floor plan,
+    delivery areas, reasons, spreadsheet import.
+
+
+    0.3.0 (client decision #9, ADR-008): personal login without a terminal, `sessionType` on the
+    session, `x-terminal`, personal idle timeout, `clientInfo` on audit entries.
+servers:
+  - url: /api/v1
+    description: Same origin as the web app (nginx proxies /api to the backend).
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+    description: Login, tokens and the logged-in user's own account (P1-AUTH-*).
+  - name: users
+    description: User accounts, locks, password / PIN resets, role assignment (owner).
+  - name: roles
+    description: Roles and the permission list (P1-RBAC-*).
+  - name: terminals
+    description: Registered devices - POS, kitchen screens, admin, displays (P1-AUTH-04).
+  - name: audit
+    description: Append-only audit log search and export (P1-AUD-*).
+  - name: settings
+    description: Restaurant details, service charge, tax, business day, idle timeouts, delivery areas, reasons, menu setting (P1-SET-*).
+  - name: menu
+    description: Kitchen stations, categories, menu items with LOCAL / FOREIGN prices, availability, modifier groups, POS menu view (P1-MENU-*).
+  - name: floor
+    description: Ordering points, tables and the floor plan (P1-FLOOR-*).
+  - name: import
+    description: Spreadsheet import of categories, menu items, modifier groups and tables (P1-IMP-01).
+
+paths:
+  # auth
+  /auth/login:
+    $ref: paths/auth.yaml#/~1auth~1login
+  /auth/refresh:
+    $ref: paths/auth.yaml#/~1auth~1refresh
+  /auth/logout:
+    $ref: paths/auth.yaml#/~1auth~1logout
+  /auth/me:
+    $ref: paths/auth.yaml#/~1auth~1me
+  /auth/me/password:
+    $ref: paths/auth.yaml#/~1auth~1me~1password
+  /auth/me/pin:
+    $ref: paths/auth.yaml#/~1auth~1me~1pin
+  # users
+  /users/options:
+    $ref: paths/users.yaml#/~1users~1options
+  /users:
+    $ref: paths/users.yaml#/~1users
+  /users/{userId}:
+    $ref: paths/users.yaml#/~1users~1{userId}
+  /users/{userId}/deactivate:
+    $ref: paths/users.yaml#/~1users~1{userId}~1deactivate
+  /users/{userId}/activate:
+    $ref: paths/users.yaml#/~1users~1{userId}~1activate
+  /users/{userId}/unlock:
+    $ref: paths/users.yaml#/~1users~1{userId}~1unlock
+  /users/{userId}/reset-password:
+    $ref: paths/users.yaml#/~1users~1{userId}~1reset-password
+  /users/{userId}/reset-pin:
+    $ref: paths/users.yaml#/~1users~1{userId}~1reset-pin
+  /users/{userId}/roles:
+    $ref: paths/users.yaml#/~1users~1{userId}~1roles
+  # roles
+  /roles/options:
+    $ref: paths/roles.yaml#/~1roles~1options
+  /roles:
+    $ref: paths/roles.yaml#/~1roles
+  /roles/{roleId}:
+    $ref: paths/roles.yaml#/~1roles~1{roleId}
+  /permissions:
+    $ref: paths/roles.yaml#/~1permissions
+  # terminals
+  /terminals:
+    $ref: paths/terminals.yaml#/~1terminals
+  /terminals/{terminalId}:
+    $ref: paths/terminals.yaml#/~1terminals~1{terminalId}
+  /terminals/{terminalId}/deactivate:
+    $ref: paths/terminals.yaml#/~1terminals~1{terminalId}~1deactivate
+  # audit
+  /audit-log:
+    $ref: paths/audit.yaml#/~1audit-log
+  /audit-log/export:
+    $ref: paths/audit.yaml#/~1audit-log~1export
+  # settings
+  /settings/restaurant:
+    $ref: paths/settings.yaml#/~1settings~1restaurant
+  /settings/service-charges:
+    $ref: paths/settings.yaml#/~1settings~1service-charges
+  /settings/tax:
+    $ref: paths/settings.yaml#/~1settings~1tax
+  /settings/business-day:
+    $ref: paths/settings.yaml#/~1settings~1business-day
+  /settings/idle-timeouts:
+    $ref: paths/settings.yaml#/~1settings~1idle-timeouts
+
+  # M1.1 menu.yaml
+  /kitchen-stations:
+    $ref: paths/menu.yaml#/~1kitchen-stations
+  /kitchen-stations/options:
+    $ref: paths/menu.yaml#/~1kitchen-stations~1options
+  /kitchen-stations/{stationId}:
+    $ref: paths/menu.yaml#/~1kitchen-stations~1{stationId}
+  /categories:
+    $ref: paths/menu.yaml#/~1categories
+  /categories/{categoryId}:
+    $ref: paths/menu.yaml#/~1categories~1{categoryId}
+  /menu-items:
+    $ref: paths/menu.yaml#/~1menu-items
+  /menu-items/{itemId}:
+    $ref: paths/menu.yaml#/~1menu-items~1{itemId}
+  /menu-items/{itemId}/availability:
+    $ref: paths/menu.yaml#/~1menu-items~1{itemId}~1availability
+  /menu/availability:
+    $ref: paths/menu.yaml#/~1menu~1availability
+  /menu/pos:
+    $ref: paths/menu.yaml#/~1menu~1pos
+  /modifier-groups:
+    $ref: paths/menu.yaml#/~1modifier-groups
+  /modifier-groups/{groupId}:
+    $ref: paths/menu.yaml#/~1modifier-groups~1{groupId}
+  # M1.1 floor.yaml
+  /ordering-points:
+    $ref: paths/floor.yaml#/~1ordering-points
+  /tables:
+    $ref: paths/floor.yaml#/~1tables
+  /tables/positions:
+    $ref: paths/floor.yaml#/~1tables~1positions
+  /tables/{tableId}:
+    $ref: paths/floor.yaml#/~1tables~1{tableId}
+  /floor/layout:
+    $ref: paths/floor.yaml#/~1floor~1layout
+  # M1.1 import.yaml
+  /import/{importType}/template:
+    $ref: paths/import.yaml#/~1import~1{importType}~1template
+  /import/{importType}:
+    $ref: paths/import.yaml#/~1import~1{importType}
+  # M1.1 settings.yaml
+  /delivery-areas:
+    $ref: paths/settings.yaml#/~1delivery-areas
+  /delivery-areas/options:
+    $ref: paths/settings.yaml#/~1delivery-areas~1options
+  /delivery-areas/{areaId}:
+    $ref: paths/settings.yaml#/~1delivery-areas~1{areaId}
+  /reasons:
+    $ref: paths/settings.yaml#/~1reasons
+  /reasons/options:
+    $ref: paths/settings.yaml#/~1reasons~1options
+  /reasons/{reasonId}:
+    $ref: paths/settings.yaml#/~1reasons~1{reasonId}
+  /settings/menu:
+    $ref: paths/settings.yaml#/~1settings~1menu
+  # M1.1 terminals.yaml
+  /terminals/setup-options:
+    $ref: paths/terminals.yaml#/~1terminals~1setup-options
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token from POST /auth/login or /auth/refresh (lifetime at most 15 min).
+  schemas:
+    # STOMP payloads are not referenced by any REST operation; they are listed here so the bundle
+    # (and both code generators) include them.
+    NotificationEvent:
+      $ref: components/events.yaml#/components/schemas/NotificationEvent
+    # Inline PIN approval body (conventions.md, Approvals). First used by an operation in M1.2;
+    # listed here so both generators already emit the type.
+    Approval:
+      $ref: components/common.yaml#/components/schemas/Approval
+
+x-websocket-events:
+  endpoint: /ws
+  description: >-
+    STOMP over WebSocket. CONNECT with header `Authorization: Bearer <accessToken>`. Subscriptions
+    are authorised on the server. Every message is the envelope {event, id, at, data}; messages are
+    hints and clients reload over REST after any reconnect.
+  destinations:
+    - destination: /user/queue/notifications
+      subscribers: The logged-in user (their own queue only).
+      x-permission: AUTHENTICATED
+      events:
+        - event: NOTIFICATION_CREATED
+          description: A new in-app notification for this user.
+          payload:
+            $ref: '#/components/schemas/NotificationEvent'

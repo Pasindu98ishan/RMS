@@ -1,0 +1,92 @@
+# Production-safe defaults: every secret comes from the environment. Local defaults live in
+# application-dev.yml (the `dev` profile, used by `./mvnw spring-boot:run`).
+spring:
+  application:
+    name: rms
+  datasource:
+    # The app connects as the restricted app role (no UPDATE/DELETE on audit_log, P1-AUD-02).
+    url: ${RMS_DB_URL}
+    username: ${RMS_DB_APP_USER:rms_app}
+    password: ${RMS_DB_APP_PASSWORD}
+    hikari:
+      data-source-properties:
+        # The PostgreSQL driver sends a JDBC batch of inserts as one multi-row INSERT (import speed, BUG-1-008).
+        reWriteBatchedInserts: true
+  flyway:
+    # Migrations run as the schema owner, a different role from the app role.
+    user: ${RMS_DB_MIGRATION_USER:rms_owner}
+    password: ${RMS_DB_MIGRATION_PASSWORD}
+    placeholders:
+      appDbUser: ${RMS_DB_APP_USER:rms_app}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          # Batch inserts / updates: an import of thousands of rows is a few hundred round trips, not tens of thousands.
+          batch_size: 100
+        order_inserts: true
+        order_updates: true
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+      # Strict typing (BUG-1-005): an integer field must be an integer, so 7.5 is rejected instead of cut to 7.
+      accept-float-as-int: false
+    mapper:
+      # ... and a number or boolean must not be sent as text ("10" for an integer, "true" for a boolean).
+      allow-coercion-of-scalars: false
+  mvc:
+    problemdetails:
+      enabled: false
+  servlet:
+    multipart:
+      # Spreadsheet import (P1-IMP-01): files up to 5 MB.
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+server:
+  port: 8080
+  # Behind nginx: take the client IP from X-Forwarded-For sent by a trusted (private-network) proxy.
+  forward-headers-strategy: native
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+rms:
+  branch-id: 00000000-0000-0000-0000-000000000001
+  time-zone: Asia/Colombo
+  security:
+    # Base64 HMAC key, at least 32 bytes. Blank = random key per start (dev only; tokens die on restart).
+    jwt-secret: ${RMS_JWT_SECRET:}
+    access-token-ttl: 15m
+    refresh-token-ttl: 12h
+    bcrypt-strength: 10
+    login-max-attempts: 5
+    login-lock-duration: 15m
+    pin-max-attempts: 3
+    pin-lock-duration: 5m
+  bootstrap:
+    # First owner, created on startup only if no active owner exists (see backend/README.md).
+    owner-username: ${RMS_BOOTSTRAP_OWNER_USERNAME:}
+    owner-password: ${RMS_BOOTSTRAP_OWNER_PASSWORD:}
+    owner-pin: ${RMS_BOOTSTRAP_OWNER_PIN:}
+    owner-full-name: ${RMS_BOOTSTRAP_OWNER_FULL_NAME:Owner}
+  recovery:
+    # Owner recovery (needs server access): when both are set, that owner's password is reset and
+    # the account unlocked at startup. Remove them again afterwards (see backend/README.md).
+    owner-username: ${RMS_RECOVERY_OWNER_USERNAME:}
+    owner-password: ${RMS_RECOVERY_OWNER_PASSWORD:}
+  audit:
+    export-max-rows: 50000

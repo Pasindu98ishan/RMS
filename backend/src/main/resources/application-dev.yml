@@ -1,0 +1,17 @@
+# Local development against deploy/docker-compose.dev.yml (Postgres on host port 15432).
+# Dev-only credentials; never use these anywhere else.
+spring:
+  datasource:
+    url: ${RMS_DB_URL:jdbc:postgresql://localhost:15432/rms}
+    password: ${RMS_DB_APP_PASSWORD:rms_app_dev}
+  flyway:
+    password: ${RMS_DB_MIGRATION_PASSWORD:rms_owner_dev}
+
+rms:
+  # Frontend dev server: http://localhost:3000 (5141-5640 are reserved on Windows) or Vite's old default
+  # 5173. Not needed when the frontend proxies /api.
+  cors-allowed-origins: http://localhost:3000,http://localhost:5173
+  bootstrap:
+    owner-username: ${RMS_BOOTSTRAP_OWNER_USERNAME:owner}
+    owner-password: ${RMS_BOOTSTRAP_OWNER_PASSWORD:owner-dev-pass}
+    owner-pin: ${RMS_BOOTSTRAP_OWNER_PIN:1234}

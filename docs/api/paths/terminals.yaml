@@ -1,0 +1,217 @@
+# Paths: terminals (device registration, P1-AUTH-04).
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-21 v0.1.0 initial M1.0 contract.
+# - 2026-11-22 v0.2.0 M1.1: added POST /terminals/setup-options; KITCHEN needs an active station and an unknown ordering point is 422;
+#   Terminal / TerminalSummary gained kitchenStationName and orderingPointName. Not breaking.
+# - 2026-11-21 v0.1.1 registerTerminal: wrong credentials no longer count towards the account lock;
+#   instead 5 failures per client IP in 15 min return 429 TOO_MANY_ATTEMPTS (added). Not breaking.
+/terminals:
+  get:
+    tags: [terminals]
+    operationId: listTerminals
+    summary: List terminals
+    description: All terminals ordered by name. Not paged (a handful of devices).
+    x-permission: TERMINAL_MANAGE
+    x-requirements: [P1-AUTH-04]
+    parameters:
+      - name: active
+        in: query
+        required: false
+        description: Only active (true) or only deactivated (false) terminals. Both when omitted.
+        schema:
+          type: boolean
+      - name: type
+        in: query
+        required: false
+        description: Only terminals of this type.
+        schema:
+          $ref: '../components/terminals.yaml#/components/schemas/TerminalType'
+    responses:
+      '200':
+        description: Terminals.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/terminals.yaml#/components/schemas/TerminalSummary'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [terminals]
+    operationId: registerTerminal
+    summary: Register this device as a terminal
+    description: >-
+      Called from the terminal-setup screen of an unregistered device, so it needs no access token:
+      the credentials of a user holding TERMINAL_MANAGE go in the body and are checked inline
+      (`x-auth: INLINE_CREDENTIALS`). Wrong credentials 401 INVALID_CREDENTIALS; they do NOT count
+      towards the account lock (so nobody can lock the owner out from an unregistered device), but
+      5 failures from one client IP within 15 minutes return 429 TOO_MANY_ATTEMPTS until the window
+      passes. A user whose account is already locked gets 423. Valid credentials without
+      TERMINAL_MANAGE 403 FORBIDDEN.
+      Returns the terminal and a one-time device token. 409 TERMINAL_NAME_TAKEN. KITCHEN needs
+      kitchenStationId (422 otherwise; stations exist from M1.1). Writes TERMINAL_REGISTERED.
+      To re-register a device that lost its token, deactivate the old terminal and register again.
+    security: []
+    x-permission: TERMINAL_MANAGE
+    x-auth: INLINE_CREDENTIALS
+    x-requirements: [P1-AUTH-04, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/terminals.yaml#/components/schemas/RegisterTerminalRequest'
+    responses:
+      '201':
+        description: Terminal registered.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/terminals.yaml#/components/schemas/TerminalRegistration'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+      '423':
+        $ref: '../components/common.yaml#/components/responses/Locked'
+      '429':
+        $ref: '../components/common.yaml#/components/responses/TooManyRequests'
+
+/terminals/{terminalId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/TerminalIdPath'
+  get:
+    tags: [terminals]
+    operationId: getTerminal
+    summary: Get a terminal
+    x-permission: TERMINAL_MANAGE
+    x-requirements: [P1-AUTH-04]
+    responses:
+      '200':
+        description: The terminal.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/terminals.yaml#/components/schemas/Terminal'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [terminals]
+    operationId: updateTerminal
+    summary: Update a terminal
+    description: >-
+      Rename, change type, kitchen station or ordering point. The device token is unchanged.
+      409 TERMINAL_NAME_TAKEN, 409 VERSION_CONFLICT. Writes UPDATE (TERMINAL) with before/after.
+    x-permission: TERMINAL_MANAGE
+    x-requirements: [P1-AUTH-04, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/terminals.yaml#/components/schemas/UpdateTerminalRequest'
+    responses:
+      '200':
+        description: Terminal updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/terminals.yaml#/components/schemas/Terminal'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/terminals/{terminalId}/deactivate:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/TerminalIdPath'
+  post:
+    tags: [terminals]
+    operationId: deactivateTerminal
+    summary: Deactivate a terminal
+    description: >-
+      Invalidates the device token and revokes every refresh token issued on this terminal, so the
+      device is logged out within one access-token lifetime. There is no reactivation: register the
+      device again. Already inactive returns 200 unchanged. Writes DEACTIVATE (TERMINAL).
+    x-permission: TERMINAL_MANAGE
+    x-requirements: [P1-AUTH-04, P1-AUD-01]
+    responses:
+      '200':
+        description: Terminal deactivated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/terminals.yaml#/components/schemas/Terminal'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+
+/terminals/setup-options:
+  post:
+    tags: [terminals]
+    operationId: getTerminalSetupOptions
+    summary: 'List the choices for registering a terminal'
+    description: >-
+      Called from the terminal-setup screen of an unregistered device, before registerTerminal,
+      so it takes no access token: the credentials of a user holding TERMINAL_MANAGE go in the
+      body (`x-auth: INLINE_CREDENTIALS`) and are checked like in registerTerminal: wrong
+      credentials are 401 INVALID_CREDENTIALS and count towards the same per-IP limit (5
+      failures in 15 minutes, then 429 TOO_MANY_ATTEMPTS) but not towards the account lock;
+      valid credentials without TERMINAL_MANAGE are 403. It is a POST only because the
+      credentials must not be in the URL; it changes nothing.
+    security: []
+    x-permission: TERMINAL_MANAGE
+    x-auth: INLINE_CREDENTIALS
+    x-requirements: [P1-AUTH-04, P1-MENU-07, P1-FLOOR-02]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/terminals.yaml#/components/schemas/OwnerCredentials'
+    responses:
+      '200':
+        description: 'The active kitchen stations and the ordering points.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/terminals.yaml#/components/schemas/TerminalSetupOptions'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+      '423':
+        $ref: '../components/common.yaml#/components/responses/Locked'
+      '429':
+        $ref: '../components/common.yaml#/components/responses/TooManyRequests'
+

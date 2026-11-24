@@ -1,0 +1,81 @@
+# Spreadsheet import (M1.1, P1-IMP-01). One file per import type, CSV or XLSX.
+# All-or-nothing: every row is validated first; any error means nothing is imported.
+components:
+  schemas:
+    ImportType:
+      type: string
+      description: >-
+        What the file contains. Import categories and modifier groups before the menu items that refer
+        to them by name. Matching for re-import: categories by name, menu items by code, modifier groups
+        by name, tables by number. A match is updated, never duplicated.
+      enum: [CATEGORIES, MENU_ITEMS, MODIFIER_GROUPS, TABLES]
+    ImportFileFormat:
+      type: string
+      enum: [CSV, XLSX]
+    ImportFileRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: The .csv (UTF-8) or .xlsx file, at most 5 MB and 5000 rows. The first row is the header.
+    ImportCounts:
+      type: object
+      required: [created, updated, unchanged]
+      properties:
+        created:
+          type: integer
+          minimum: 0
+        updated:
+          type: integer
+          minimum: 0
+        unchanged:
+          type: integer
+          minimum: 0
+    ImportError:
+      type: object
+      description: One problem found in the file.
+      required: [message]
+      properties:
+        row:
+          type: integer
+          minimum: 1
+          description: Spreadsheet row number, counting the header as row 1. Absent for file-level problems.
+        column:
+          type: string
+          description: Header name of the column, e.g. `local_price`. Absent for row-level problems.
+        value:
+          type: string
+          description: The offending cell text.
+        message:
+          type: string
+          description: Plain-English reason, e.g. "'abc' is not a number".
+          examples: ["'abc' is not a number"]
+    ImportReport:
+      type: object
+      description: >-
+        Result of an import or a dry run. `ok: false` means nothing was imported. Counts are what
+        was (or, for a dry run, would be) created, updated or left unchanged; all zero when not ok.
+      required: [importType, dryRun, ok, rowsRead, counts, errors, errorsTruncated]
+      properties:
+        importType:
+          $ref: '#/components/schemas/ImportType'
+        dryRun:
+          type: boolean
+        ok:
+          type: boolean
+        rowsRead:
+          type: integer
+          minimum: 0
+          description: Data rows read (header excluded).
+        counts:
+          $ref: '#/components/schemas/ImportCounts'
+        errors:
+          type: array
+          description: At most 200 errors, in file order.
+          items:
+            $ref: '#/components/schemas/ImportError'
+        errorsTruncated:
+          type: boolean
+          description: True when there were more than 200 errors.

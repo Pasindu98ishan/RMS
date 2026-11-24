@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dev-dist/
+coverage/
+*.local
+# Generated from docs/api by `npm run api:gen` (ADR-005) - never committed.
+src/api/generated/

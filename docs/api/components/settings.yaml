@@ -1,0 +1,396 @@
+# Settings (module: settings). Every change writes a SETTINGS_CHANGED audit entry with before/after.
+components:
+  schemas:
+    RestaurantDetails:
+      type: object
+      description: Printed on every receipt (P1-SET-03).
+      required: [name, address, phone, version, updatedAt]
+      properties:
+        name:
+          type: string
+          examples: ['Santhula Hotel']
+        address:
+          type: string
+          description: May contain line breaks; each line is printed as a receipt line.
+          examples: ["No. 12, Main Street\nNetolpitiya"]
+        phone:
+          type: string
+          examples: ['+94 47 222 3344']
+        receiptFooter:
+          type: string
+          description: Printed at the bottom of every receipt. May contain line breaks.
+          examples: ['Thank you, come again!']
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateRestaurantDetailsRequest:
+      type: object
+      required: [name, address, phone, version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        address:
+          type: string
+          minLength: 1
+          maxLength: 200
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 40
+        receiptFooter:
+          type: string
+          maxLength: 300
+        version:
+          type: integer
+          description: Version from the last GET.
+
+    ServiceChargeOrderType:
+      type: string
+      description: Order types that carry their own service charge rate. Credit orders use the rate of their service mode (P1-SET-01).
+      enum: [DINE_IN, TAKEAWAY, DELIVERY]
+    ServiceChargeRule:
+      type: object
+      required: [orderType, rate]
+      properties:
+        orderType:
+          $ref: '#/components/schemas/ServiceChargeOrderType'
+        rate:
+          $ref: './common.yaml#/components/schemas/Rate'
+    ServiceChargeSettings:
+      type: object
+      description: One rule per order type, always all three. The rate is copied onto each order when it is created (ADR-002).
+      required: [rules, version, updatedAt]
+      properties:
+        rules:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/ServiceChargeRule'
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    ServiceChargeRuleInput:
+      type: object
+      required: [orderType, rate]
+      properties:
+        orderType:
+          $ref: '#/components/schemas/ServiceChargeOrderType'
+        rate:
+          $ref: './common.yaml#/components/schemas/Rate'
+    UpdateServiceChargeSettingsRequest:
+      type: object
+      required: [rules, version]
+      properties:
+        rules:
+          type: array
+          minItems: 3
+          maxItems: 3
+          description: Exactly one rule for each of DINE_IN, TAKEAWAY, DELIVERY.
+          items:
+            $ref: '#/components/schemas/ServiceChargeRuleInput'
+        version:
+          type: integer
+          description: Version from the last GET.
+
+    TaxSettings:
+      type: object
+      description: 'Tax engine setting (P1-SET-02). Client decision #2 - disabled, rate 0.00.'
+      required: [enabled, rate, version, updatedAt]
+      properties:
+        enabled:
+          type: boolean
+          examples: [false]
+        rate:
+          $ref: './common.yaml#/components/schemas/Rate'
+        label:
+          type: string
+          description: Name printed on the tax line when tax is enabled.
+          examples: ['VAT']
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateTaxSettingsRequest:
+      type: object
+      required: [enabled, rate, version]
+      properties:
+        enabled:
+          type: boolean
+          description: Must be false in Phase 1 (409 TAX_NOT_SUPPORTED otherwise; see ADR-002).
+        rate:
+          $ref: './common.yaml#/components/schemas/Rate'
+        label:
+          type: string
+          maxLength: 20
+        version:
+          type: integer
+          description: Version from the last GET.
+
+    BusinessDaySettings:
+      type: object
+      description: >-
+        Business day boundary (P1-SET-04). Orders after midnight but before day-end belong to the
+        open business day; this time decides which date a new business day gets.
+      required: [dayStartTime, timeZone, version, updatedAt]
+      properties:
+        dayStartTime:
+          type: string
+          description: Local time (HH:mm, 24 h) in `timeZone` at which a new business date starts.
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          examples: ['06:00']
+        timeZone:
+          type: string
+          description: IANA time zone of the branch. Fixed, read-only.
+          examples: ['Asia/Colombo']
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateBusinessDaySettingsRequest:
+      type: object
+      required: [dayStartTime, version]
+      properties:
+        dayStartTime:
+          type: string
+          description: Local time (HH:mm, 24 h). Takes effect from the next business day.
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          examples: ['06:00']
+        version:
+          type: integer
+          description: Version from the last GET.
+
+    IdleTimeoutRule:
+      type: object
+      required: [terminalType, exempt]
+      properties:
+        terminalType:
+          $ref: './terminals.yaml#/components/schemas/TerminalType'
+        exempt:
+          type: boolean
+          description: True for KITCHEN and DISPLAY (never logged out for idleness, P1-AUTH-03).
+        idleTimeoutMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: Present when not exempt.
+          examples: [10]
+    IdleTimeoutSettings:
+      type: object
+      description: >-
+        One rule per terminal type (all five), plus the idle logout of personal sessions (ADR-008).
+        Defaults POS 10 min, ADMIN 30 min, personal 30 min.
+      required: [rules, idleTimeoutPersonalMinutes, version, updatedAt]
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdleTimeoutRule'
+        idleTimeoutPersonalMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: Idle logout for personal sessions (logged in without a terminal).
+          examples: [30]
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    IdleTimeoutRuleInput:
+      type: object
+      required: [terminalType, idleTimeoutMinutes]
+      properties:
+        terminalType:
+          $ref: './terminals.yaml#/components/schemas/TerminalType'
+        idleTimeoutMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+    UpdateIdleTimeoutSettingsRequest:
+      type: object
+      required: [rules, version]
+      properties:
+        rules:
+          type: array
+          minItems: 3
+          maxItems: 3
+          description: Exactly one rule for each of CASHIER_POS, RECEPTION_POS, ADMIN. KITCHEN / DISPLAY are rejected (422).
+          items:
+            $ref: '#/components/schemas/IdleTimeoutRuleInput'
+        idleTimeoutPersonalMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: Idle logout for personal sessions. Optional; when absent the current value is kept.
+          examples: [30]
+        version:
+          type: integer
+          description: Version from the last GET.
+
+    # ------------------------------------------------------------------ M1.1: delivery areas (P1-SET-07)
+    DeliveryArea:
+      type: object
+      description: A delivery area with its fee. Never deleted, only deactivated.
+      required: [id, name, fee, active, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Netolpitiya']
+        fee:
+          $ref: './common.yaml#/components/schemas/Money'
+        active:
+          type: boolean
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateDeliveryAreaRequest:
+      type: object
+      required: [name, fee]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Unique (case-insensitive).
+        fee:
+          $ref: './common.yaml#/components/schemas/Money'
+        active:
+          type: boolean
+          description: Defaults to true.
+    UpdateDeliveryAreaRequest:
+      type: object
+      required: [name, fee, active, version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        fee:
+          $ref: './common.yaml#/components/schemas/Money'
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: Version from the last GET.
+    DeliveryAreaOption:
+      type: object
+      description: An active area to pick on a delivery order.
+      required: [id, name, fee]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        fee:
+          $ref: './common.yaml#/components/schemas/Money'
+
+    # ------------------------------------------------------------------ M1.1: reasons (P1-SET-08)
+    ReasonCategory:
+      type: string
+      description: Which dialog uses the list.
+      enum: [CANCEL, VOID, REFUND, PETTY_CASH, DISCOUNT_OTHER]
+    Reason:
+      type: object
+      description: One entry of an editable reason list. Never deleted, only deactivated.
+      required: [id, category, text, active, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        category:
+          $ref: '#/components/schemas/ReasonCategory'
+        text:
+          type: string
+          examples: ['Customer changed mind']
+        active:
+          type: boolean
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateReasonRequest:
+      type: object
+      required: [category, text]
+      properties:
+        category:
+          $ref: '#/components/schemas/ReasonCategory'
+        text:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Unique within its category (case-insensitive).
+        active:
+          type: boolean
+          description: Defaults to true.
+    UpdateReasonRequest:
+      type: object
+      description: The category of a reason cannot change.
+      required: [text, active, version]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 200
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: Version from the last GET.
+    ReasonOption:
+      type: object
+      description: An active reason to pick in a dialog.
+      required: [id, text]
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+
+    # ------------------------------------------------------------------ M1.1: menu setting
+    MenuSettings:
+      type: object
+      description: Menu behaviour setting (P1-MENU-06, m1.1-scope.md decision 5).
+      required: [resetAvailabilityDaily, version, updatedAt]
+      properties:
+        resetAvailabilityDaily:
+          type: boolean
+          description: >-
+            When true (default), every item is set available again at the start of each business day,
+            so a forgotten sold-out toggle cannot hide an item forever.
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateMenuSettingsRequest:
+      type: object
+      required: [resetAvailabilityDaily, version]
+      properties:
+        resetAvailabilityDaily:
+          type: boolean
+        version:
+          type: integer
+          description: Version from the last GET.

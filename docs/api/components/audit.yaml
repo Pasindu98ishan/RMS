@@ -1,0 +1,134 @@
+# Audit log (module: audit). Append-only: there is no create, update or delete endpoint (P1-AUD-02).
+components:
+  parameters:
+    AuditUserId:
+      name: userId
+      in: query
+      required: false
+      description: Entries made by this user.
+      schema:
+        type: string
+        format: uuid
+    AuditActionFilter:
+      name: action
+      in: query
+      required: false
+      description: Entries with this action.
+      schema:
+        $ref: '#/components/schemas/AuditAction'
+    AuditEntityType:
+      name: entityType
+      in: query
+      required: false
+      description: Entries about this kind of record (e.g. USER).
+      schema:
+        type: string
+        pattern: '^[A-Z][A-Z0-9_]*$'
+    AuditEntityId:
+      name: entityId
+      in: query
+      required: false
+      description: Entries about this record. Usually combined with entityType.
+      schema:
+        type: string
+        maxLength: 100
+  schemas:
+    AuditAction:
+      type: string
+      description: >-
+        What happened. Generic CREATE / UPDATE / DELETE / ACTIVATE / DEACTIVATE are combined with
+        `entityType`; the specific actions cover the P1-AUD-01 list. Values for later Phase 1
+        milestones are declared now so the filter list is stable.
+      enum:
+        - LOGIN
+        - LOGIN_FAILED
+        - LOGOUT
+        - ACCOUNT_LOCKED
+        - ACCOUNT_UNLOCKED
+        - PASSWORD_CHANGED
+        - PASSWORD_RESET
+        - PIN_CHANGED
+        - PIN_RESET
+        - PIN_FAILED
+        - PIN_LOCKED
+        - CREATE
+        - UPDATE
+        - DELETE
+        - ACTIVATE
+        - DEACTIVATE
+        - ROLES_ASSIGNED
+        - TERMINAL_REGISTERED
+        - SETTINGS_CHANGED
+        - PRICE_CHANGED
+        - DISCOUNT_APPLIED
+        - DISCOUNT_REMOVED
+        - LINE_CANCELLED
+        - BILL_VOIDED
+        - REFUND
+        - SHIFT_OPENED
+        - SHIFT_CLOSED
+        - DAY_END
+        - AUDIT_EXPORTED
+        - DATA_IMPORTED
+    AuditSnapshot:
+      type: object
+      description: JSON snapshot of the changed values (field name to value). Shape depends on entityType.
+      additionalProperties: true
+    AuditEntry:
+      type: object
+      required: [id, at, action, entityType]
+      properties:
+        id:
+          type: string
+          format: uuid
+        at:
+          type: string
+          format: date-time
+          description: When it happened (UTC).
+        user:
+          $ref: './common.yaml#/components/schemas/UserRef'
+        username:
+          type: string
+          description: Username as typed, for LOGIN_FAILED when no such user exists (then `user` is absent).
+        terminal:
+          $ref: './common.yaml#/components/schemas/TerminalRef'
+          description: Absent for a personal session (ADR-008) and for system actions.
+        clientInfo:
+          type: string
+          maxLength: 300
+          description: >-
+            Where the request came from: IP address and a trimmed User-Agent (ADR-008), e.g.
+            "203.0.113.7 | Mozilla/5.0 (Android 14; Mobile) Chrome/131". Absent for system actions and
+            for rows written before 0.3.0.
+          examples: ['203.0.113.7 | Mozilla/5.0 (Android 14; Mobile) Chrome/131']
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        entityType:
+          type: string
+          description: >-
+            Kind of record affected, UPPER_SNAKE. M1.0 values: USER, ROLE, TERMINAL, SETTING,
+            SERVICE_CHARGE_RULE, AUTH_SESSION, AUDIT_LOG. M1.1 adds KITCHEN_STATION, CATEGORY, MENU_ITEM,
+            MODIFIER_GROUP, DINING_TABLE, DELIVERY_AREA, REASON, IMPORT. Later milestones add ORDER, BILL, etc.
+          examples: ['USER']
+        entityId:
+          type: string
+          description: Id of the record (usually a UUID; a setting key for SETTING).
+          examples: ['8b0f3c1e-5d7a-4a43-9a51-2f0f0d0c7d11']
+        before:
+          $ref: '#/components/schemas/AuditSnapshot'
+        after:
+          $ref: '#/components/schemas/AuditSnapshot'
+        approver:
+          $ref: './common.yaml#/components/schemas/UserRef'
+        reason:
+          type: string
+    AuditLogPage:
+      allOf:
+        - $ref: './common.yaml#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuditEntry'

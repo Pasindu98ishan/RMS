@@ -1,0 +1,76 @@
+# Paths: audit log (read-only; there is no create, update or delete endpoint, P1-AUD-02).
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-21 v0.1.0 initial M1.0 contract.
+/audit-log:
+  get:
+    tags: [audit]
+    operationId: searchAuditLog
+    summary: Search the audit log
+    description: >-
+      Paged, newest first by default. `from` / `to` are calendar dates in Asia/Colombo (not business
+      dates), inclusive; `to` before `from` returns 422. Sort field: `at` only (default `at,desc`).
+    x-permission: AUDIT_VIEW
+    x-requirements: [P1-AUD-01, P1-AUD-03]
+    parameters:
+      - $ref: '../components/common.yaml#/components/parameters/Page'
+      - $ref: '../components/common.yaml#/components/parameters/Size'
+      - $ref: '../components/common.yaml#/components/parameters/Sort'
+      - $ref: '../components/common.yaml#/components/parameters/From'
+      - $ref: '../components/common.yaml#/components/parameters/To'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditUserId'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditActionFilter'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditEntityType'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditEntityId'
+    responses:
+      '200':
+        description: A page of audit entries.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/audit.yaml#/components/schemas/AuditLogPage'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/audit-log/export:
+  get:
+    tags: [audit]
+    operationId: exportAuditLog
+    summary: Export the audit log to Excel
+    description: >-
+      Same filters as searchAuditLog, all matching rows (newest first) in one .xlsx sheet, times shown
+      in Asia/Colombo. More than 50,000 matching rows returns 422 EXPORT_TOO_LARGE (narrow the filters).
+      The export itself is audit-logged (AUDIT_EXPORTED, with the filters used).
+    x-permission: AUDIT_VIEW
+    x-requirements: [P1-AUD-03]
+    parameters:
+      - $ref: '../components/common.yaml#/components/parameters/From'
+      - $ref: '../components/common.yaml#/components/parameters/To'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditUserId'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditActionFilter'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditEntityType'
+      - $ref: '../components/audit.yaml#/components/parameters/AuditEntityId'
+    responses:
+      '200':
+        description: Excel file download.
+        headers:
+          Content-Disposition:
+            $ref: '../components/common.yaml#/components/headers/ContentDisposition'
+        content:
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'

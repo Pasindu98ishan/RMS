@@ -14,8 +14,10 @@ Phase 1 screens in detail; later phases listed so routes and layouts are planned
 ### Shared
 | Route | Screen | Who | Reqs |
 |---|---|---|---|
-| `/login` | Login (username + password) | All | P1-AUTH-01 |
-| `/setup/terminal` | Register this device as a terminal (owner login) | Owner | P1-AUTH-04 |
+| `/login` | Login (username + password). **First screen on every device.** A registered device shows its terminal name and logs in as a terminal session; an unregistered device logs in as a personal session (ADR-008). Link "Set up this device" → `/setup/terminal`. | All | P1-AUTH-01, P1-AUTH-04 |
+| `/setup/terminal` | Register this device as a counter / kitchen / admin / display terminal (owner credentials) | Owner | P1-AUTH-04 |
+| `/home` | Personal-session home for users with no admin or rider screens | Personal session | P1-AUTH-04 |
+| — | POS and kitchen routes in a personal session show "Use a registered counter device" | All | P1-AUTH-04 |
 | — | Idle lock overlay → back to login | All POS/admin | P1-AUTH-03 |
 
 ### POS (`/pos`, PosLayout — header shows terminal, user, shift status, kitchen status dots, alerts bell)

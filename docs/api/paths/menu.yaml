@@ -1,0 +1,581 @@
+# Paths: menu (M1.1) - kitchen stations, categories, menu items with LOCAL / FOREIGN prices, availability,
+# modifier groups and the POS menu view. Items, categories and groups are never deleted, only deactivated.
+# Change log (breaking changes are listed here with the date):
+# - 2026-11-22 v0.2.0 added for M1.1. Not breaking.
+/kitchen-stations:
+  get:
+    tags: [menu]
+    operationId: listKitchenStations
+    summary: 'List kitchen stations'
+    description: >-
+      The three stations with their target preparation time and the number of active items
+      mapped to each, by number.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-07, P1-SET-05]
+    responses:
+      '200':
+        description: 'Stations.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/menu.yaml#/components/schemas/KitchenStation'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/kitchen-stations/options:
+  get:
+    tags: [menu]
+    operationId: listKitchenStationOptions
+    summary: 'List active stations to pick from'
+    description: >-
+      Narrow lookup for the admin terminals screen (TERMINAL_MANAGE, not MENU_MANAGE). Active
+      stations only, by number. The terminal-setup screen on an unregistered device uses
+      getTerminalSetupOptions instead.
+    x-permission: TERMINAL_MANAGE
+    x-requirements: [P1-AUTH-04, P1-MENU-07]
+    responses:
+      '200':
+        description: 'Station options.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/menu.yaml#/components/schemas/KitchenStationOption'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/kitchen-stations/{stationId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/KitchenStationId'
+  get:
+    tags: [menu]
+    operationId: getKitchenStation
+    summary: 'Get a kitchen station'
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-07]
+    responses:
+      '200':
+        description: 'The station.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/KitchenStation'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [menu]
+    operationId: updateKitchenStation
+    summary: 'Update a kitchen station'
+    description: >-
+      Rename a station, set its target preparation time or deactivate it. Stations are seeded
+      and never created or deleted. 409 STATION_NAME_TAKEN, 409 STATION_IN_USE (deactivating a
+      station that still has active items), 409 VERSION_CONFLICT. Writes UPDATE
+      (KITCHEN_STATION) with before/after.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-07, P1-SET-05, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/UpdateKitchenStationRequest'
+    responses:
+      '200':
+        description: 'Station updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/KitchenStation'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/categories:
+  get:
+    tags: [menu]
+    operationId: listCategories
+    summary: 'List categories'
+    description: >-
+      All categories including inactive ones, by sortOrder then name. Not paged.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-01]
+    responses:
+      '200':
+        description: 'Categories.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/menu.yaml#/components/schemas/Category'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [menu]
+    operationId: createCategory
+    summary: 'Create a category'
+    description: >-
+      409 CATEGORY_NAME_TAKEN. Writes CREATE (CATEGORY) to the audit log.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-01, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/CreateCategoryRequest'
+    responses:
+      '201':
+        description: 'Category created.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/Category'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/categories/{categoryId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/CategoryId'
+  get:
+    tags: [menu]
+    operationId: getCategory
+    summary: 'Get a category'
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-01]
+    responses:
+      '200':
+        description: 'The category.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/Category'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [menu]
+    operationId: updateCategory
+    summary: 'Update a category'
+    description: >-
+      Categories are never deleted: set `active` to false instead. An inactive category hides
+      its items from the POS without changing the items. 409 CATEGORY_NAME_TAKEN, 409
+      VERSION_CONFLICT. Writes UPDATE (CATEGORY).
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-01, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/UpdateCategoryRequest'
+    responses:
+      '200':
+        description: 'Category updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/Category'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/menu-items:
+  get:
+    tags: [menu]
+    operationId: listMenuItems
+    summary: 'List menu items'
+    description: >-
+      Paged. Sort fields: `code`, `name`, `localPrice`, `updatedAt` (default `code,asc`).
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-02, P1-MENU-04]
+    parameters:
+      - $ref: '../components/common.yaml#/components/parameters/Page'
+      - $ref: '../components/common.yaml#/components/parameters/Size'
+      - $ref: '../components/common.yaml#/components/parameters/Sort'
+      - name: categoryId
+        in: query
+        required: false
+        description: 'Only items of this category.'
+        schema:
+          type: string
+          format: uuid
+      - name: stationId
+        in: query
+        required: false
+        description: 'Only items prepared at this station.'
+        schema:
+          type: string
+          format: uuid
+      - name: active
+        in: query
+        required: false
+        description: 'Only active (true) or only inactive (false) items. Both when omitted.'
+        schema:
+          type: boolean
+      - name: available
+        in: query
+        required: false
+        description: 'Only available (true) or only sold-out (false) items. Both when omitted.'
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        required: false
+        description: 'Case-insensitive match on code or name.'
+        schema:
+          type: string
+          maxLength: 100
+    responses:
+      '200':
+        description: 'A page of items.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/MenuItemPage'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+  post:
+    tags: [menu]
+    operationId: createMenuItem
+    summary: 'Create a menu item'
+    description: >-
+      An item needs exactly one kitchen station (422 on `stationId` otherwise), a unique code
+      (409 ITEM_CODE_TAKEN) and a local price; the foreign price is optional. Unknown category,
+      station or modifier group ids are 422. Prices must be Money strings with 2 decimals and
+      not negative. Writes CREATE (MENU_ITEM) with the prices.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-02, P1-MENU-03, P1-MENU-04, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/CreateMenuItemRequest'
+    responses:
+      '201':
+        description: 'Item created.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/MenuItem'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/menu-items/{itemId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/MenuItemId'
+  get:
+    tags: [menu]
+    operationId: getMenuItem
+    summary: 'Get a menu item'
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-02]
+    responses:
+      '200':
+        description: 'The item.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/MenuItem'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [menu]
+    operationId: updateMenuItem
+    summary: 'Update a menu item'
+    description: >-
+      Full replacement; an omitted foreignPrice removes the foreign price and omitted
+      modifierGroupIds detaches all groups. Items are never deleted: set `active` to false. A
+      price change writes PRICE_CHANGED (before/after) besides UPDATE and never changes existing
+      orders (P1-MENU-05). 409 ITEM_CODE_TAKEN, 409 VERSION_CONFLICT.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-02, P1-MENU-03, P1-MENU-04, P1-MENU-05, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/UpdateMenuItemRequest'
+    responses:
+      '200':
+        description: 'Item updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/MenuItem'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/menu-items/{itemId}/availability:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/MenuItemId'
+  put:
+    tags: [menu]
+    operationId: setMenuItemAvailability
+    summary: 'Mark an item sold out or available'
+    description: >-
+      The sold-out toggle (P1-MENU-06). Needs MENU_AVAILABILITY, which Owner, Manager and
+      Cashier hold; it does not need MENU_MANAGE. Idempotent, no version needed. Writes UPDATE
+      (MENU_ITEM) with before/after `available`.
+    x-permission: MENU_AVAILABILITY
+    x-requirements: [P1-MENU-06, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/SetItemAvailabilityRequest'
+    responses:
+      '200':
+        description: 'Availability set.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/ItemAvailability'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/menu/availability:
+  get:
+    tags: [menu]
+    operationId: listAvailabilityItems
+    summary: 'List items for the sold-out board'
+    description: >-
+      Active items of active categories, by category order then name, with their `available`
+      flag. For people who may toggle availability but not edit the menu (MENU_AVAILABILITY).
+    x-permission: MENU_AVAILABILITY
+    x-requirements: [P1-MENU-06]
+    responses:
+      '200':
+        description: 'Items.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/menu.yaml#/components/schemas/AvailabilityItem'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/menu/pos:
+  get:
+    tags: [menu]
+    operationId: getPosMenu
+    summary: 'Get the sellable menu for the order screen'
+    description: >-
+      The whole menu in one call: active categories with their active items (prices for both
+      price lists, station, `available`), the active modifier groups with options, and the
+      active stations. Sold-out items are included with `available: false`. Clients search it
+      locally (P1-ORD-03) and reload it at login and now and then. Needs ORDER_CREATE (cashier,
+      reception, manager, owner).
+    x-permission: ORDER_CREATE
+    x-requirements: [P1-ORD-03, P1-MENU-03, P1-MENU-04, P1-MENU-06]
+    responses:
+      '200':
+        description: 'The menu.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/PosMenu'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+
+/modifier-groups:
+  get:
+    tags: [menu]
+    operationId: listModifierGroups
+    summary: 'List modifier groups'
+    description: >-
+      All groups including inactive ones with their options, by name. Not paged.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-03]
+    responses:
+      '200':
+        description: 'Groups.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '../components/menu.yaml#/components/schemas/ModifierGroup'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+  post:
+    tags: [menu]
+    operationId: createModifierGroup
+    summary: 'Create a modifier group'
+    description: >-
+      Rules (422 with a field error otherwise): required groups have minSelect >= 1 and optional
+      groups minSelect 0; maxSelect >= minSelect and not more than the number of options; option
+      price deltas are not negative; option names are unique inside the group. 409
+      MODIFIER_GROUP_NAME_TAKEN. Writes CREATE (MODIFIER_GROUP).
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/CreateModifierGroupRequest'
+    responses:
+      '201':
+        description: 'Group created.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/ModifierGroup'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+
+/modifier-groups/{groupId}:
+  parameters:
+    - $ref: '../components/common.yaml#/components/parameters/ModifierGroupId'
+  get:
+    tags: [menu]
+    operationId: getModifierGroup
+    summary: 'Get a modifier group'
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-03]
+    responses:
+      '200':
+        description: 'The group.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/ModifierGroup'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+  put:
+    tags: [menu]
+    operationId: updateModifierGroup
+    summary: 'Update a modifier group'
+    description: >-
+      Full replacement of the group and its options: options keep their identity through `id`,
+      options not listed are removed. Groups are never deleted: set `active` to false. Same
+      rules as createModifierGroup. 409 MODIFIER_GROUP_NAME_TAKEN, 409 VERSION_CONFLICT. Writes
+      UPDATE (MODIFIER_GROUP) with before/after. Existing orders keep their snapshot.
+    x-permission: MENU_MANAGE
+    x-requirements: [P1-MENU-03, P1-AUD-01]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/menu.yaml#/components/schemas/UpdateModifierGroupRequest'
+    responses:
+      '200':
+        description: 'Group updated.'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/menu.yaml#/components/schemas/ModifierGroup'
+      '400':
+        $ref: '../components/common.yaml#/components/responses/BadRequest'
+      '401':
+        $ref: '../components/common.yaml#/components/responses/Unauthorized'
+      '403':
+        $ref: '../components/common.yaml#/components/responses/Forbidden'
+      '404':
+        $ref: '../components/common.yaml#/components/responses/NotFound'
+      '409':
+        $ref: '../components/common.yaml#/components/responses/Conflict'
+      '422':
+        $ref: '../components/common.yaml#/components/responses/ValidationFailed'
+

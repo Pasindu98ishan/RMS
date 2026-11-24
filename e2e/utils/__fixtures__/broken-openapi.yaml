@@ -1,0 +1,152 @@
+# Spec with deliberate contract defects; each operation triggers exactly the problem named in its summary.
+openapi: 3.1.0
+info:
+  title: RMS broken fixture
+  version: 0.0.0-test
+security:
+  - bearerAuth: []
+paths:
+  /public-with-token:
+    post:
+      summary: INCONSISTENT_SECURITY (PUBLIC but bearer still required)
+      operationId: publicWithToken
+      x-permission: PUBLIC
+      x-requirements: [P1-AUTH-01]
+      responses: { '200': { description: ok } }
+  /no-security-with-code:
+    get:
+      summary: INCONSISTENT_SECURITY (security [] on a permission-coded op without x-auth)
+      operationId: noSecurityWithCode
+      security: []
+      x-permission: USER_MANAGE
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /bad-x-auth:
+    post:
+      summary: INVALID_X_AUTH (unknown value)
+      operationId: badXAuth
+      security: []
+      x-permission: TERMINAL_MANAGE
+      x-auth: API_KEY
+      x-requirements: [P1-AUTH-04]
+      responses: { '200': { description: ok } }
+  /inline-without-credentials:
+    post:
+      summary: INVALID_X_AUTH (x-auth INLINE_CREDENTIALS but no credentials object in body)
+      operationId: inlineWithoutCredentials
+      security: []
+      x-permission: TERMINAL_MANAGE
+      x-auth: INLINE_CREDENTIALS
+      x-requirements: [P1-AUTH-04]
+      responses: { '200': { description: ok } }
+  /no-permission:
+    get:
+      summary: MISSING_X_PERMISSION
+      operationId: noPermission
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /unknown-permission:
+    get:
+      summary: UNKNOWN_PERMISSION
+      operationId: unknownPermission
+      x-permission: ORDER_TELEPORT
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /malformed-permission:
+    get:
+      summary: INVALID_X_PERMISSION
+      operationId: malformedPermission
+      x-permission: 'order create'
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /duplicate-a:
+    get:
+      summary: first use of the id (no problem)
+      operationId: duplicated
+      x-permission: ORDER_VIEW
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /duplicate-b:
+    get:
+      summary: DUPLICATE_OPERATION_ID
+      operationId: duplicated
+      x-permission: ORDER_VIEW
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /no-operation-id:
+    get:
+      summary: MISSING_OPERATION_ID
+      x-permission: ORDER_VIEW
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /no-requirements:
+    get:
+      summary: MISSING_X_REQUIREMENTS (warning)
+      operationId: noRequirements
+      x-permission: ORDER_VIEW
+      responses: { '200': { description: ok } }
+  /owner-discount-manager-approval:
+    post:
+      summary: APPROVAL_LEVEL_MISMATCH (manager cannot approve DISCOUNT_OWNER)
+      operationId: ownerDiscountManagerApproval
+      x-permission: DISCOUNT_OWNER
+      x-approval: MANAGER
+      x-requirements: [P1-DISC-05]
+      responses: { '200': { description: ok } }
+  /void-owner-approval:
+    post:
+      summary: APPROVAL_LEVEL_MISMATCH (manager also has PIN for BILL_VOID)
+      operationId: voidOwnerApproval
+      x-permission: BILL_VOID
+      x-approval: OWNER
+      x-requirements: [P1-CAN-05]
+      responses: { '200': { description: ok } }
+  /approval-no-pin-grant:
+    post:
+      summary: APPROVAL_WITHOUT_PIN_GRANT (nobody has a PIN for ORDER_VIEW)
+      operationId: approvalNoPinGrant
+      x-permission: ORDER_VIEW
+      x-approval: MANAGER
+      x-requirements: [P1-RBAC-03]
+      responses: { '200': { description: ok } }
+  /approval-ambiguous:
+    post:
+      summary: APPROVAL_PERMISSION_UNKNOWN (two codes, no x-approval-permission)
+      operationId: approvalAmbiguous
+      x-permission: [LINE_CANCEL_BEFORE_KOT, LINE_CANCEL_AFTER_KOT]
+      x-approval: MANAGER
+      x-requirements: [P1-CAN-02]
+      responses: { '200': { description: ok } }
+  /approval-bad-level:
+    post:
+      summary: INVALID_X_APPROVAL
+      operationId: approvalBadLevel
+      x-permission: REFUND
+      x-approval: CASHIER
+      x-requirements: [P1-CAN-04]
+      responses: { '200': { description: ok } }
+  /approval-explicit:
+    post:
+      summary: no problem — caller needs ORDER_VIEW, approver needs LINE_CANCEL_AFTER_KOT
+      operationId: approvalExplicit
+      x-permission: ORDER_VIEW
+      x-approval: MANAGER
+      x-approval-permission: LINE_CANCEL_AFTER_KOT
+      x-requirements: [P1-CAN-02]
+      responses: { '200': { description: ok } }
+  /audit-logs/{id}:
+    delete:
+      summary: no matrix problem, but an AUD-02 violation for contract-checks
+      operationId: deleteAuditLog
+      x-permission: AUDIT_VIEW
+      x-requirements: [P1-AUD-02]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses: { '204': { description: deleted } }
+  /audit-logs/export:
+    post:
+      summary: allowed POST on audit (export)
+      operationId: exportAuditLogs
+      x-permission: AUDIT_VIEW
+      x-requirements: [P1-AUD-03]
+      responses: { '200': { description: ok } }

@@ -1,0 +1,171 @@
+# Authentication and the current user's own account (module: auth).
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      description: >-
+        Terminal session: deviceToken here and the X-Terminal-Id header. Personal session: neither
+        (ADR-008). One without the other is 422.
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 32
+          examples: ['cashier1']
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+          format: password
+          writeOnly: true
+        deviceToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+          description: >-
+            Device token this terminal received at registration (sent together with the X-Terminal-Id
+            header). Omit it, and the header, for a personal session.
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+    LogoutReason:
+      type: string
+      description: Why the session ended; recorded in the audit log.
+      enum: [USER, IDLE_TIMEOUT]
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+        reason:
+          $ref: '#/components/schemas/LogoutReason'
+    AuthUser:
+      type: object
+      description: The logged-in user as the UI needs it.
+      required: [id, username, fullName, roles, pinSet]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          examples: ['cashier1']
+        fullName:
+          type: string
+          examples: ['Nimal Perera']
+        roles:
+          type: array
+          items:
+            $ref: './roles.yaml#/components/schemas/RoleRef'
+        pinSet:
+          type: boolean
+          description: False means the user should set an approval PIN (only matters for users who approve).
+    SessionType:
+      type: string
+      description: >-
+        TERMINAL = logged in on a registered device (has `terminal`); PERSONAL = logged in without a
+        terminal by a user holding LOGIN_ANY_DEVICE (no `terminal`; operations marked
+        `x-terminal: REQUIRED` return 403 TERMINAL_REQUIRED). ADR-008.
+      enum: [TERMINAL, PERSONAL]
+    AuthSession:
+      type: object
+      description: Returned by login and refresh. Permissions and idle timeout are current as of this call.
+      required: [accessToken, expiresIn, refreshToken, refreshExpiresIn, user, permissions, sessionType]
+      properties:
+        accessToken:
+          type: string
+          description: JWT sent as the Bearer token. Carries user id, permissions and (terminal session only) terminal id.
+        expiresIn:
+          type: integer
+          minimum: 1
+          maximum: 900
+          description: Access token lifetime in seconds (at most 15 min).
+          examples: [900]
+        refreshToken:
+          type: string
+          description: >-
+            Opaque, single-use refresh token bound to this session (and to its terminal in a terminal
+            session). Each refresh returns a new one.
+        refreshExpiresIn:
+          type: integer
+          minimum: 1
+          maximum: 43200
+          description: Refresh token lifetime in seconds (at most 12 h).
+          examples: [43200]
+        user:
+          $ref: '#/components/schemas/AuthUser'
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: './roles.yaml#/components/schemas/PermissionCode'
+        sessionType:
+          $ref: '#/components/schemas/SessionType'
+        terminal:
+          $ref: './terminals.yaml#/components/schemas/TerminalSummary'
+          description: The terminal of a TERMINAL session; absent in a PERSONAL session.
+        idleTimeoutMinutes:
+          type: integer
+          minimum: 1
+          description: >-
+            Idle logout: for a TERMINAL session the rule of its terminal type (absent for KITCHEN and
+            DISPLAY, no idle logout); for a PERSONAL session `idleTimeoutPersonalMinutes` (always present).
+          examples: [10]
+    CurrentUserProfile:
+      type: object
+      description: Result of GET /auth/me.
+      required: [user, permissions, sessionType]
+      properties:
+        user:
+          $ref: '#/components/schemas/AuthUser'
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: './roles.yaml#/components/schemas/PermissionCode'
+        sessionType:
+          $ref: '#/components/schemas/SessionType'
+        terminal:
+          $ref: './terminals.yaml#/components/schemas/TerminalSummary'
+          description: The terminal of a TERMINAL session; absent in a PERSONAL session.
+        idleTimeoutMinutes:
+          type: integer
+          minimum: 1
+          description: >-
+            As in AuthSession: the terminal type's rule (absent for KITCHEN and DISPLAY) or, in a
+            PERSONAL session, `idleTimeoutPersonalMinutes`.
+          examples: [10]
+    ChangeOwnPasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 72
+          format: password
+          writeOnly: true
+        newPassword:
+          $ref: './users.yaml#/components/schemas/NewPassword'
+    SetOwnPinRequest:
+      type: object
+      required: [currentPassword, newPin]
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 72
+          format: password
+          writeOnly: true
+          description: The user's password, to confirm it is really them.
+        newPin:
+          $ref: './users.yaml#/components/schemas/NewPin'

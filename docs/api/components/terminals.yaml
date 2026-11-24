@@ -1,0 +1,165 @@
+# Terminals (module: auth). Every device is registered as a terminal (P1-AUTH-04).
+components:
+  schemas:
+    TerminalType:
+      type: string
+      description: >-
+        CASHIER_POS and RECEPTION_POS run the POS, KITCHEN runs one station's KDS
+        (needs kitchenStationId), ADMIN runs the admin panel, DISPLAY is a read-only screen
+        (e.g. the large inventory display). KITCHEN and DISPLAY have no idle logout.
+      enum: [CASHIER_POS, RECEPTION_POS, KITCHEN, ADMIN, DISPLAY]
+    TerminalSummary:
+      type: object
+      required: [id, name, type, active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Cashier POS 1']
+        type:
+          $ref: '#/components/schemas/TerminalType'
+        kitchenStationId:
+          type: string
+          format: uuid
+          description: Present for KITCHEN terminals only.
+        kitchenStationName:
+          type: string
+          description: Name of the station, present with kitchenStationId (read-only).
+        orderingPointId:
+          type: string
+          format: uuid
+          description: Ordering point (cashier, reception) orders from this terminal default to. POS terminals only.
+        orderingPointName:
+          type: string
+          description: Name of the ordering point, present with orderingPointId (read-only).
+        active:
+          type: boolean
+    Terminal:
+      type: object
+      required: [id, name, type, active, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Cashier POS 1']
+        type:
+          $ref: '#/components/schemas/TerminalType'
+        kitchenStationId:
+          type: string
+          format: uuid
+          description: Present for KITCHEN terminals only.
+        kitchenStationName:
+          type: string
+          description: Name of the station, present with kitchenStationId (read-only).
+        orderingPointId:
+          type: string
+          format: uuid
+          description: Ordering point (cashier, reception) orders from this terminal default to. POS terminals only.
+        orderingPointName:
+          type: string
+          description: Name of the ordering point, present with orderingPointId (read-only).
+        active:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          description: Last successful login on this terminal.
+        version:
+          type: integer
+          description: Optimistic-lock version; send it back on update.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    OwnerCredentials:
+      type: object
+      description: Credentials of a user holding TERMINAL_MANAGE, checked inline (no access token needed on an unregistered device).
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 32
+          examples: ['owner']
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+          format: password
+          writeOnly: true
+    RegisterTerminalRequest:
+      type: object
+      required: [credentials, name, type]
+      properties:
+        credentials:
+          $ref: '#/components/schemas/OwnerCredentials'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Unique terminal name (case-insensitive).
+          examples: ['Kitchen 1 screen']
+        type:
+          $ref: '#/components/schemas/TerminalType'
+        kitchenStationId:
+          type: string
+          format: uuid
+          description: Id of an active kitchen station (see listKitchenStationOptions). Required when type is KITCHEN, not allowed otherwise; an unknown or inactive id is 422.
+        orderingPointId:
+          type: string
+          format: uuid
+          description: Id of an ordering point (see listOrderingPoints). Optional, CASHIER_POS / RECEPTION_POS only; an unknown id is 422.
+    TerminalRegistration:
+      type: object
+      required: [terminal, deviceToken]
+      properties:
+        terminal:
+          $ref: '#/components/schemas/Terminal'
+        deviceToken:
+          type: string
+          minLength: 32
+          description: >-
+            Secret proving this device is the registered terminal. Returned only once; the device
+            stores it (with the terminal id) and sends it on every login. The server stores only a hash.
+    UpdateTerminalRequest:
+      type: object
+      required: [name, type, version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Unique terminal name (case-insensitive).
+        type:
+          $ref: '#/components/schemas/TerminalType'
+        kitchenStationId:
+          type: string
+          format: uuid
+          description: Id of an active kitchen station (see listKitchenStationOptions). Required when type is KITCHEN, not allowed otherwise; an unknown or inactive id is 422.
+        orderingPointId:
+          type: string
+          format: uuid
+          description: Id of an ordering point (see listOrderingPoints). Optional, CASHIER_POS / RECEPTION_POS only; an unknown id is 422.
+        version:
+          type: integer
+          description: Version from the last GET.
+    TerminalSetupOptions:
+      type: object
+      description: What the terminal-setup screen offers before the device is registered.
+      required: [kitchenStations, orderingPoints]
+      properties:
+        kitchenStations:
+          type: array
+          description: Active stations.
+          items:
+            $ref: './menu.yaml#/components/schemas/KitchenStationOption'
+        orderingPoints:
+          type: array
+          items:
+            $ref: './floor.yaml#/components/schemas/OrderingPoint'

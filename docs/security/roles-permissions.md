@@ -12,6 +12,7 @@ Legend: ✅ granted · 🔑 can approve with PIN · `own` = only own records / o
 | `USER_MANAGE` | ✅ | — | — | — | — | — | — | — |
 | `ROLE_MANAGE` | ✅ | — | — | — | — | — | — | — |
 | `TERMINAL_MANAGE` | ✅ | — | — | — | — | — | — | — |
+| `LOGIN_ANY_DEVICE` (log in without a registered terminal, ADR-008) | ✅ | ✅ | — | — | — | ✅ | ✅ | ✅ |
 | `SETTINGS_MANAGE` | ✅ | — | — | — | — | — | — | — |
 | `AUDIT_VIEW` | ✅ | — | — | — | — | — | — | — |
 | `MENU_MANAGE` (items, prices, modifiers, stations) | ✅ | — | — | — | — | — | — | — |
@@ -74,3 +75,4 @@ Legend: ✅ granted · 🔑 can approve with PIN · `own` = only own records / o
 - Approver must hold the permission themselves; a cashier's PIN never approves anything.
 - `own` scoping is enforced in queries (e.g. a cashier calling `/reports/cashier-sales?userId=<other>` gets 403).
 - QA tests the full matrix: every permission × every seeded role (P1-RBAC-03).
+- Session type (ADR-008): operations marked `x-terminal: REQUIRED` (orders, payments, shifts, kitchen screens, from M1.2) also need a terminal session, on top of the permission. A personal session gets 403 `TERMINAL_REQUIRED`.

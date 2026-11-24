@@ -1,0 +1,53 @@
+# STOMP event payloads. Every message uses the envelope {event, id, at, data}
+# (conventions.md, WebSocket). Messages are hints: after any reconnect the client reloads over REST.
+# Destinations and which schema each carries are listed in openapi.yaml `x-websocket-events`.
+components:
+  schemas:
+    NotificationEventType:
+      type: string
+      description: Event names carried on `/user/queue/notifications`.
+      enum: [NOTIFICATION_CREATED]
+    NotificationType:
+      type: string
+      description: >-
+        Kind of in-app notification. Only GENERAL exists in M1.0; later milestones add values
+        (e.g. high discount, void above limit, cash shortage, day-end summary).
+      enum: [GENERAL]
+    NotificationEvent:
+      type: object
+      description: Envelope for a message on `/user/queue/notifications` (the logged-in user's own queue).
+      required: [event, id, at, data]
+      properties:
+        event:
+          $ref: '#/components/schemas/NotificationEventType'
+        id:
+          type: string
+          format: uuid
+          description: Unique message id; clients drop duplicates by this id.
+        at:
+          type: string
+          format: date-time
+          description: When the event happened (UTC).
+          examples: ['2026-11-21T08:30:00Z']
+        data:
+          $ref: '#/components/schemas/NotificationPayload'
+    NotificationPayload:
+      type: object
+      required: [notificationId, type, title, body, createdAt]
+      properties:
+        notificationId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        title:
+          type: string
+          maxLength: 120
+          examples: ['Settings changed']
+        body:
+          type: string
+          maxLength: 1000
+          examples: ['Service charge for dine-in was changed to 10.00%.']
+        createdAt:
+          type: string
+          format: date-time

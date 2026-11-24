@@ -1,0 +1,7 @@
+node_modules/
+generated/
+test-results/
+playwright-report/
+blob-report/
+.seed-state.json
+.env

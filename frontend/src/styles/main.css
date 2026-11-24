@@ -1,0 +1,330 @@
+/* RMS global styles. Component styling comes from PrimeVue (Aura); these are layout tokens. */
+:root {
+  --rms-bg: #f4f6f8;
+  --rms-surface: #ffffff;
+  --rms-border: #dde3e8;
+  --rms-text: #1f2933;
+  --rms-muted: #5f6b76;
+  --rms-primary: #0f766e;
+  --rms-primary-soft: #e6f4f2;
+  --rms-danger: #b42318;
+  --rms-danger-soft: #fdecea;
+  --rms-warn: #b45309;
+  --rms-warn-soft: #fff4e0;
+  --rms-ok: #15803d;
+  --rms-ok-soft: #e7f6ec;
+  --rms-info: #1d4ed8;
+  --rms-info-soft: #e8efff;
+  --rms-touch: 48px;
+  --rms-radius: 10px;
+  --rms-gutter: 16px;
+  font-family: Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--rms-text);
+  background: var(--rms-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--rms-bg);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+}
+
+a {
+  color: var(--rms-primary);
+}
+
+.muted {
+  color: var(--rms-muted);
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.85em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- page scaffolding */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-header h1 {
+  font-size: 1.4rem;
+}
+
+.card {
+  background: var(--rms-surface);
+  border: 1px solid var(--rms-border);
+  border-radius: var(--rms-radius);
+  padding: 16px;
+}
+
+.card > h2 {
+  font-size: 1.05rem;
+  margin-bottom: 12px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field > label,
+.field > .label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.field .hint {
+  color: var(--rms-muted);
+  font-size: 0.82rem;
+}
+
+.field-error {
+  color: var(--rms-danger);
+  font-size: 0.85rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.native-input,
+.native-select {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid #cbd2d9;
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+  color: inherit;
+  width: 100%;
+}
+
+.native-input:focus,
+.native-select:focus {
+  outline: 2px solid var(--rms-primary);
+  outline-offset: 0;
+  border-color: var(--rms-primary);
+}
+
+/* ---------------------------------------------------------------- status chips (never colour alone) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.chip-ok {
+  background: var(--rms-ok-soft);
+  color: var(--rms-ok);
+}
+
+.chip-danger {
+  background: var(--rms-danger-soft);
+  color: var(--rms-danger);
+}
+
+.chip-warn {
+  background: var(--rms-warn-soft);
+  color: var(--rms-warn);
+}
+
+.chip-info {
+  background: var(--rms-info-soft);
+  color: var(--rms-info);
+}
+
+.chip-muted {
+  background: #eef1f4;
+  color: var(--rms-muted);
+}
+
+.banner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.banner-info {
+  background: var(--rms-info-soft);
+  border-color: #c3d4ff;
+  color: #1e3a8a;
+}
+
+.banner-warn {
+  background: var(--rms-warn-soft);
+  border-color: #f5d29b;
+  color: #7c3a06;
+}
+
+.banner-danger {
+  background: var(--rms-danger-soft);
+  border-color: #f3b8b2;
+  color: #7a1a12;
+}
+
+/* ---------------------------------------------------------------- responsive table: cards below 720px */
+.rtable {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--rms-surface);
+}
+
+.rtable th,
+.rtable td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rms-border);
+  vertical-align: middle;
+}
+
+.rtable th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--rms-muted);
+  background: #f9fafb;
+}
+
+.rtable tr.inactive td {
+  color: var(--rms-muted);
+}
+
+.rtable .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.table-wrap {
+  border: 1px solid var(--rms-border);
+  border-radius: var(--rms-radius);
+  overflow: hidden;
+  background: var(--rms-surface);
+}
+
+@media (max-width: 720px) {
+  .rtable thead {
+    display: none;
+  }
+
+  .rtable,
+  .rtable tbody,
+  .rtable tr,
+  .rtable td {
+    display: block;
+    width: 100%;
+  }
+
+  .rtable tr {
+    border-bottom: 1px solid var(--rms-border);
+    padding: 8px 4px;
+  }
+
+  .rtable td {
+    border: none;
+    padding: 4px 10px;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+  }
+
+  .rtable td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--rms-muted);
+    font-size: 0.8rem;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .rtable td[data-label=''] ::before,
+  .rtable td.no-label::before {
+    content: none;
+  }
+
+  .rtable .actions {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------------------------------------------------------------- touch screens */
+.touch .p-button {
+  min-height: var(--rms-touch);
+}
+
+/* fieldset used only to disable a whole form while it loads */
+fieldset.plain {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}

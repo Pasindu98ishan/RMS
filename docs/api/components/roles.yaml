@@ -1,0 +1,194 @@
+# Roles and permissions (module: auth). Source: ../../security/roles-permissions.md.
+components:
+  schemas:
+    PermissionCode:
+      type: string
+      description: >-
+        Permission codes checked by the server (`@PreAuthorize("hasAuthority('<CODE>')")`).
+        Phase 1 set; later phases add codes when their features are built.
+      enum:
+        - USER_MANAGE
+        - ROLE_MANAGE
+        - TERMINAL_MANAGE
+        - LOGIN_ANY_DEVICE
+        - SETTINGS_MANAGE
+        - AUDIT_VIEW
+        - MENU_MANAGE
+        - MENU_AVAILABILITY
+        - FLOOR_MANAGE
+        - DATA_IMPORT
+        - ORDER_CREATE
+        - ORDER_VIEW
+        - ORDER_CUSTOM_ITEM
+        - ORDER_TABLE_OPS
+        - ORDER_PRICE_LIST_CHANGE_SENT
+        - DELIVERY_MANAGE
+        - CUSTOMER_MANAGE
+        - RIDER_LIST_MANAGE
+        - BILL_PAY
+        - BILL_REPRINT
+        - LINE_CANCEL_BEFORE_KOT
+        - LINE_CANCEL_AFTER_KOT
+        - REFUND
+        - BILL_VOID
+        - DISCOUNT_STAFF
+        - DISCOUNT_GOVERNMENT
+        - DISCOUNT_OTHER_WITHIN_LIMIT
+        - DISCOUNT_OTHER_ABOVE_LIMIT
+        - DISCOUNT_OWNER
+        - DISCOUNT_LIMIT_OVERRIDE
+        - KDS_OPERATE
+        - KDS_VIEW_ALL
+        - SHIFT_OPERATE
+        - SHIFT_APPROVE
+        - DAY_END
+        - REPORT_OWN_SHIFT
+        - REPORT_POS_ALL
+        - REPORT_EXPORT
+    PermissionModule:
+      type: string
+      description: Group a permission belongs to (used to group checkboxes in the role editor).
+      enum: [ADMIN, ORDERS, BILLING, DISCOUNTS, KITCHEN, SHIFTS, REPORTS]
+    Permission:
+      type: object
+      required: [code, description, module]
+      properties:
+        code:
+          $ref: '#/components/schemas/PermissionCode'
+        description:
+          type: string
+          examples: ['Create orders of all types']
+        module:
+          $ref: '#/components/schemas/PermissionModule'
+    RoleKey:
+      type: string
+      description: Stable key of a seeded (system) role. Absent for custom roles. Match on this, never on the name.
+      enum: [OWNER, MANAGER, CASHIER, RECEPTIONIST, KITCHEN, RIDER, INVENTORY, HR]
+    RoleRef:
+      type: object
+      description: Minimal role reference embedded in users.
+      required: [id, name, system]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Cashier']
+        system:
+          type: boolean
+          description: True for the 8 seeded roles (cannot be deleted or renamed).
+        key:
+          $ref: '#/components/schemas/RoleKey'
+    RoleOption:
+      type: object
+      description: A role to pick in the create-user and assign-roles forms.
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Cashier']
+        key:
+          $ref: '#/components/schemas/RoleKey'
+    RoleSummary:
+      type: object
+      required: [id, name, system, permissionCount, userCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Cashier']
+        description:
+          type: string
+        system:
+          type: boolean
+          description: True for the 8 seeded roles (cannot be deleted or renamed).
+        key:
+          $ref: '#/components/schemas/RoleKey'
+        permissionCount:
+          type: integer
+          minimum: 0
+        userCount:
+          type: integer
+          minimum: 0
+          description: Number of active users holding this role.
+    Role:
+      type: object
+      required: [id, name, system, permissionCodes, userCount, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: ['Senior Cashier']
+        description:
+          type: string
+          examples: ['Cashier who can also manage the floor plan']
+        system:
+          type: boolean
+          description: True for the 8 seeded roles (cannot be deleted or renamed).
+        key:
+          $ref: '#/components/schemas/RoleKey'
+        permissionCodes:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/PermissionCode'
+        userCount:
+          type: integer
+          minimum: 0
+          description: Number of active users holding this role.
+        version:
+          type: integer
+          description: Optimistic-lock version; send it back on update.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateRoleRequest:
+      type: object
+      required: [name, permissionCodes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Unique role name (case-insensitive).
+          examples: ['Senior Cashier']
+        description:
+          type: string
+          maxLength: 200
+        permissionCodes:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/PermissionCode'
+    UpdateRoleRequest:
+      type: object
+      required: [name, permissionCodes, version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Unique role name (case-insensitive). System roles cannot be renamed.
+        description:
+          type: string
+          maxLength: 200
+        permissionCodes:
+          type: array
+          uniqueItems: true
+          description: Full replacement of the role's permissions.
+          items:
+            $ref: '#/components/schemas/PermissionCode'
+        version:
+          type: integer
+          description: Version from the last GET.
